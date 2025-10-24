@@ -1,0 +1,37 @@
+Based on your specifications, here are the contents for the file /matching-engine-cpp/matching-engine-cpp/.clang-format:
+
+BasedOn: Google
+IndentWidth: 4
+UseTab: Never
+ColumnLimit: 120
+AllowShortBlocksOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: true
+AllowShortLoopsOnASingleLine: true
+BreakBeforeBraces: Attach
+SpaceBeforeParens: ControlStatements
+SpacesInParentheses: false
+SpacesInAngles: false
+SpaceAfterCStyleCast: true
+SpaceAfterTemplateKeyword: true
+SpacesInContainerLiterals: true
+Cpp11BracedListStyle: true
+SortIncludes: true
+IncludeBlocks: Preserve
+IncludeCategories:
+  - Regex: '^<.*>'
+    Priority: 1
+  - Regex: '^\.\./'
+    Priority: 2
+  - Regex: '^\./'
+    Priority: 3
+  - Regex: '.*'
+    Priority: 4
+SortUsingDeclarations: true
+BreakAfterFunctionCallParameterList: true
+BreakBeforeTernaryOperators: true
+BinPackParameters: true
+BinPackArguments: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1

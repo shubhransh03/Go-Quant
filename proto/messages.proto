@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package matchingengine;
+
+// Message for order submission
+message Order {
+    enum OrderType {
+        LIMIT = 0;
+        MARKET = 1;
+    }
+
+    string order_id = 1;
+    string symbol = 2;
+    OrderType order_type = 3;
+    double price = 4;
+    int32 quantity = 5;
+    bool is_buy = 6; // true for buy orders, false for sell orders
+}
+
+// Message for order cancellation
+message CancelOrder {
+    string order_id = 1;
+}
+
+// Message for trade execution
+message Trade {
+    string trade_id = 1;
+    string buy_order_id = 2;
+    string sell_order_id = 3;
+    double price = 4;
+    int32 quantity = 5;
+    int64 timestamp = 6; // Unix timestamp of the trade
+}
+
+// Message for market data updates
+message MarketData {
+    string symbol = 1;
+    double bid_price = 2;
+    double ask_price = 3;
+    int32 bid_size = 4;
+    int32 ask_size = 5;
+    int64 timestamp = 6; // Unix timestamp of the market data update
+}
