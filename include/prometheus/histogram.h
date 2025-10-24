@@ -1,28 +1,23 @@
+// Prometheus histogram shim for IntelliSense only; forward to real library in builds.
 #pragma once
-#include <vector>
-#include <map>
-#include <string>
 
+#if defined(__INTELLISENSE__) || defined(__clangd__)
+#include "family.h"
 namespace prometheus {
+class Histogram { public: void Observe(double) {} };
 
-class Histogram {
-public:
-    Histogram() = default;
-    void Observe(double) {}
-};
+class Registry; // fwd decl for builder
 
 template<typename T>
-class Family {
+class Builder {
 public:
-    Histogram* Add(const std::map<std::string, std::string>&, const std::vector<double>&) {
-        static Histogram inst;
-        return &inst;
-    }
+	Builder& Name(const std::string&) { return *this; }
+	Builder& Help(const std::string&) { return *this; }
+	Family<T>& Register(Registry&) { static Family<T> fam; return fam; }
 };
 
-inline Family<Histogram>& BuildHistogram() {
-    static Family<Histogram> fam;
-    return fam;
+inline Builder<Histogram> BuildHistogram() { return {}; }
 }
-
-} // namespace prometheus
+#else
+#include_next <prometheus/histogram.h>
+#endif

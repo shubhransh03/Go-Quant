@@ -6,6 +6,7 @@
 #include <prometheus/histogram.h>
 #include <prometheus/exposer.h>
 #include <prometheus/registry.h>
+#include <prometheus/family.h>
 #include <memory>
 #include <string>
 #include <chrono>
@@ -68,10 +69,9 @@ public:
             .Help("Order processing latency in microseconds")
             .Register(*registry_);
             
-        order_latency_ = &latency_family.Add(
-            {{"type", "order_processing"}},
-            std::vector<double>{10, 50, 100, 250, 500, 1000, 2500, 5000}
-        );
+        std::map<std::string, std::string> order_labels = {{"type", "order_processing"}};
+        std::vector<double> latency_buckets = {10, 50, 100, 250, 500, 1000, 2500, 5000};
+        order_latency_ = &latency_family.Add(order_labels, latency_buckets);
         
         // Initialize gauges
         auto& pool_family = prometheus::BuildGauge()
@@ -99,61 +99,74 @@ public:
 
     // Per-symbol counter increments
     void incrementOrdersReceived(const std::string& symbol) {
+        if (!registry_) return;  // Metrics not started, skip
         getOrCreateCounter(orders_total_family_, "received", symbol)->Increment();
     }
     
     void incrementOrdersMatched(const std::string& symbol) {
+        if (!registry_) return;
         getOrCreateCounter(orders_total_family_, "matched", symbol)->Increment();
     }
     
     void incrementOrdersCancelled(const std::string& symbol) {
+        if (!registry_) return;
         getOrCreateCounter(orders_total_family_, "cancelled", symbol)->Increment();
     }
     
     // Rate limiter metrics
     void incrementRateLimiterAllowed(const std::string& symbol) {
+        if (!registry_) return;
         getOrCreateCounter(rate_limit_family_, "allowed", symbol)->Increment();
     }
     
     void incrementRateLimiterRejected(const std::string& symbol) {
+        if (!registry_) return;
         getOrCreateCounter(rate_limit_family_, "rejected", symbol)->Increment();
     }
     
     void setRateLimiterTokens(const std::string& symbol, double tokens) {
+        if (!registry_) return;
         getOrCreateGauge(token_gauge_family_, "current", symbol)->Set(tokens);
     }
     
     // Symbol-specific metrics
     void updateSymbolPrice(const std::string& symbol, double price, const std::string& side) {
+        if (!registry_) return;
         getOrCreateGauge(symbol_gauge_family_, side + "_price", symbol)->Set(price);
     }
     
     void updateSymbolVolume(const std::string& symbol, double volume) {
+        if (!registry_) return;
         getOrCreateGauge(symbol_gauge_family_, "volume_24h", symbol)->Set(volume);
     }
     
     void updateSymbolTrades(const std::string& symbol, size_t count) {
+        if (!registry_) return;
         getOrCreateGauge(symbol_gauge_family_, "trades_24h", symbol)->Set(count);
     }
 
     // Latency tracking
     void observeOrderLatency(double microseconds) {
+        if (!registry_ || !order_latency_) return;
         order_latency_->Observe(microseconds);
     }
 
     // Pool metrics
     void updatePoolMetrics(size_t capacity, size_t used) {
+        if (!registry_ || !order_pool_capacity_ || !order_pool_used_) return;
         order_pool_capacity_->Set(capacity);
         order_pool_used_->Set(used);
     }
 
     // Book depth
     void updateBookDepth(const std::string& symbol, size_t depth) {
+        if (!registry_ || !book_depth_gauge_) return;
         book_depth_gauge_->Set(depth);
     }
 
     // System metrics (used by SystemMetrics collector)
     void setSystemMetric(const std::string& name, double value) {
+        if (!registry_ || !system_metrics_family_) return;
         getOrCreateSystemGauge(name)->Set(value);
     }
 
@@ -164,6 +177,7 @@ public:
             : histogram_(histogram), start_(std::chrono::high_resolution_clock::now()) {}
             
         ~LatencyTracker() {
+            if (!histogram_) return;  // Metrics not started, skip
             auto duration = std::chrono::high_resolution_clock::now() - start_;
             auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
             histogram_->Observe(static_cast<double>(microseconds));
@@ -176,7 +190,7 @@ public:
 
     // Get a latency tracker
     LatencyTracker trackOrderLatency() {
-        return LatencyTracker(order_latency_);
+        return LatencyTracker(registry_ ? order_latency_ : nullptr);
     }
 
     // Stop and clean up the exposer/registry (useful during shutdown or tests)
@@ -186,9 +200,20 @@ public:
             if (exposer_) {
                 exposer_.reset();
             }
-            if (registry_) {
-                registry_.reset();
-            }
+            // Release registry and invalidate cached metric pointers
+            registry_.reset();
+            // Clear cached pointers so future start() recreates fresh metrics safely
+            counters_.clear();
+            gauges_.clear();
+            orders_total_family_ = nullptr;
+            rate_limit_family_ = nullptr;
+            token_gauge_family_ = nullptr;
+            symbol_gauge_family_ = nullptr;
+            system_metrics_family_ = nullptr;
+            order_latency_ = nullptr;
+            order_pool_capacity_ = nullptr;
+            order_pool_used_ = nullptr;
+            book_depth_gauge_ = nullptr;
         } catch (...) {
             // swallow
         }

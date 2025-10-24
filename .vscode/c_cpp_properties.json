@@ -1,6 +1,28 @@
 {
   "configurations": [
     {
+      "name": "Mac",
+      "includePath": [
+        "${workspaceFolder}/include",
+        "${workspaceFolder}/src",
+        "${workspaceFolder}/proto",
+        "${workspaceFolder}/third_party/include",
+        "/opt/homebrew/include",
+        "/usr/local/include",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include"
+      ],
+      "defines": [],
+      "compilerPath": "/usr/bin/clang++",
+      "cStandard": "c11",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "macos-clang-arm64",
+      "compileCommands": "${workspaceFolder}/build/compile_commands.json",
+      "macFrameworkPath": [
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks"
+      ]
+    },
+    {
       "name": "Win32",
       "includePath": [
         "${workspaceFolder}/include",
@@ -16,6 +38,7 @@
       "cStandard": "c11",
       "cppStandard": "c++17",
       "intelliSenseMode": "msvc-x64",
+      "compileCommands": "${workspaceFolder}/build/compile_commands.json",
       "browse": {
         "path": [
           "${workspaceFolder}/include",
@@ -30,13 +53,13 @@
         "${workspaceFolder}/include",
         "${workspaceFolder}/src",
         "${workspaceFolder}/third_party/include",
-        "/usr/include",
         "/usr/local/include"
       ],
       "compilerPath": "/usr/bin/g++",
       "cStandard": "c11",
       "cppStandard": "c++17",
-      "intelliSenseMode": "gcc-x64"
+      "intelliSenseMode": "gcc-x64",
+      "compileCommands": "${workspaceFolder}/build/compile_commands.json"
     }
   ],
   "version": 4

@@ -1,28 +1,23 @@
+// Prometheus counter shim for IntelliSense only; forward to real library in builds.
 #pragma once
-#include <map>
-#include <string>
 
+#if defined(__INTELLISENSE__) || defined(__clangd__)
+#include "family.h"
 namespace prometheus {
+class Counter { public: void Increment(double = 1.0) {} };
 
-class Counter {
-public:
-    Counter() = default;
-    void Increment(double val = 1.0) {}
-    double Value() const { return 0.0; }
-};
+class Registry; // fwd decl for builder
 
 template<typename T>
-class Family {
+class Builder {
 public:
-    T& Add(const std::map<std::string, std::string>&) {
-        static T inst;
-        return inst;
-    }
+	Builder& Name(const std::string&) { return *this; }
+	Builder& Help(const std::string&) { return *this; }
+	Family<T>& Register(Registry&) { static Family<T> fam; return fam; }
 };
 
-inline Family<Counter>& BuildCounter() {
-    static Family<Counter> fam;
-    return fam;
+inline Builder<Counter> BuildCounter() { return {}; }
 }
-
-} // namespace prometheus
+#else
+#include_next <prometheus/counter.h>
+#endif

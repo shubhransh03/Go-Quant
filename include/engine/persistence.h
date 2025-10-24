@@ -1,6 +1,7 @@
 #ifndef PERSISTENCE_H
 #define PERSISTENCE_H
 
+#include <chrono>
 #include <fstream>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -18,29 +19,15 @@ class OrderBookPersistence {
             j["symbol"] = symbol;
             j["timestamp"] = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
-            // Save buy orders
-            json buyOrders = json::array();
-            for (const auto &level : orderBook.getBuyLevels()) {
-                for (const auto &order : level.second.orders) {
-                    buyOrders.push_back({{"id", order->getId()},
-                                         {"price", order->getPrice()},
-                                         {"quantity", order->getQuantity()},
-                                         {"timestamp", std::chrono::system_clock::to_time_t(order->getTimestamp())}});
-                }
-            }
-            j["buy_orders"] = buyOrders;
-
-            // Save sell orders
-            json sellOrders = json::array();
-            for (const auto &level : orderBook.getSellLevels()) {
-                for (const auto &order : level.second.orders) {
-                    sellOrders.push_back({{"id", order->getId()},
-                                          {"price", order->getPrice()},
-                                          {"quantity", order->getQuantity()},
-                                          {"timestamp", std::chrono::system_clock::to_time_t(order->getTimestamp())}});
-                }
-            }
-            j["sell_orders"] = sellOrders;
+            // Persist a compact view using public API (top levels with aggregated quantities)
+            // Choose a reasonable depth; callers can adjust by post-processing if needed.
+            constexpr size_t DEPTH = 100;
+            auto bids = orderBook.getTopBids(DEPTH);
+            auto asks = orderBook.getTopAsks(DEPTH);
+            j["bids"] = json::array();
+            for (const auto &p : bids) j["bids"].push_back({{"price", p.first}, {"quantity", p.second}});
+            j["asks"] = json::array();
+            for (const auto &p : asks) j["asks"].push_back({{"price", p.first}, {"quantity", p.second}});
 
             // Write to file
             std::ofstream file(filepath);
@@ -59,20 +46,26 @@ class OrderBookPersistence {
             json j;
             file >> j;
 
-            auto orderBook = std::make_unique<OrderBook>(j["symbol"]);
+            auto orderBook = std::make_unique<OrderBook>(j["symbol"].get<std::string>());
 
-            // Load buy orders
-            for (const auto &orderData : j["buy_orders"]) {
-                auto order = std::make_shared<Order>(orderData["id"], j["symbol"], Order::Side::BUY, Order::Type::LIMIT,
-                                                     orderData["price"], orderData["quantity"]);
-                orderBook->addOrder(order);
+            // Recreate a simple representation: one LIMIT order per level with aggregated quantity
+            int idx = 0;
+            if (j.contains("bids")) {
+                for (const auto &lv : j["bids"]) {
+                    std::string id = "B_" + std::to_string(idx++);
+                    auto order = std::make_shared<Order>(id, orderBook->getSymbol(), Order::Side::BUY, Order::Type::LIMIT,
+                                                         lv["price"].get<double>(), lv["quantity"].get<double>());
+                    orderBook->addOrder(order);
+                }
             }
-
-            // Load sell orders
-            for (const auto &orderData : j["sell_orders"]) {
-                auto order = std::make_shared<Order>(orderData["id"], j["symbol"], Order::Side::SELL,
-                                                     Order::Type::LIMIT, orderData["price"], orderData["quantity"]);
-                orderBook->addOrder(order);
+            idx = 0;
+            if (j.contains("asks")) {
+                for (const auto &lv : j["asks"]) {
+                    std::string id = "A_" + std::to_string(idx++);
+                    auto order = std::make_shared<Order>(id, orderBook->getSymbol(), Order::Side::SELL, Order::Type::LIMIT,
+                                                         lv["price"].get<double>(), lv["quantity"].get<double>());
+                    orderBook->addOrder(order);
+                }
             }
 
             return orderBook;

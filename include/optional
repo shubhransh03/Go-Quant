@@ -1,12 +1,11 @@
-// Minimal std::optional stub for editor/IntelliSense only.
-#ifndef PROJECT_OPTIONAL_STUB
-#define PROJECT_OPTIONAL_STUB
+// Minimal std::optional stub for IDE IntelliSense only.
+#ifndef PROJECT_OPTIONAL_STUB_FORWARD
+#define PROJECT_OPTIONAL_STUB_FORWARD
 
+#if defined(__INTELLISENSE__) || defined(__clangd__)
 namespace std {
-
-struct nullopt_t { explicit nullopt_t(int) {} };
-static constexpr nullopt_t nullopt{0};
-
+struct nullopt_t { explicit constexpr nullopt_t(int) {} };
+inline const nullopt_t nullopt{0};
 template <typename T>
 class optional {
 public:
@@ -20,7 +19,10 @@ private:
     bool has;
     T value_;
 };
-
 } // namespace std
+#else
+// In real builds, forward to the system header to avoid conflicts
+#include_next <optional>
+#endif
 
-#endif // PROJECT_OPTIONAL_STUB
+#endif // PROJECT_OPTIONAL_STUB_FORWARD

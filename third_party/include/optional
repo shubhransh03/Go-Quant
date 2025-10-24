@@ -1,12 +1,11 @@
 // Minimal std::optional stub for IntelliSense only.
-#ifndef THIRD_PARTY_OPTIONAL_STUB
-#define THIRD_PARTY_OPTIONAL_STUB
+#ifndef THIRD_PARTY_OPTIONAL_STUB_FORWARD
+#define THIRD_PARTY_OPTIONAL_STUB_FORWARD
 
+#if defined(__INTELLISENSE__) || defined(__clangd__)
 namespace std {
-
-struct nullopt_t { explicit nullopt_t(int) {} };
-static constexpr nullopt_t nullopt{0};
-
+struct nullopt_t { constexpr explicit nullopt_t(int) {} };
+inline const nullopt_t nullopt{0};
 template <typename T>
 class optional {
 public:
@@ -20,7 +19,9 @@ private:
     bool has;
     T value_;
 };
-
 } // namespace std
+#else
+#include_next <optional>
+#endif
 
-#endif // THIRD_PARTY_OPTIONAL_STUB
+#endif // THIRD_PARTY_OPTIONAL_STUB_FORWARD

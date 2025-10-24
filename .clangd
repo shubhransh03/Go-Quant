@@ -1,0 +1,38 @@
+CompileFlags:
+  Add:
+    - -I/Users/shubhupadhyay/Downloads/Go-Quant/include
+    - -I/Users/shubhupadhyay/Downloads/Go-Quant/third_party/include
+    - -I/opt/homebrew/include
+    - -I/usr/local/include
+    - -isystem/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1
+    - -isysroot/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
+    - -stdlib=libc++
+    - -std=c++17
+  CompilationDatabase: build/
+
+Diagnostics:
+  UnusedIncludes: None
+  MissingIncludes: None
+  ClangTidy:
+    Remove: "*"
+
+---
+
+# Suppress all diagnostics for third-party stub headers
+If:
+  PathMatch: third_party/include/prometheus/.*
+Diagnostics:
+  Suppress: "*"
+  ClangTidy:
+    Remove: "*"
+Index:
+  Background: Skip
+
+---
+
+# Suppress prometheus stub-related errors in metrics_manager.h
+If:
+  PathMatch: include/utils/metrics_manager.h
+Diagnostics:
+  Suppress: "no instance of function template"
+  Suppress: "too many arguments"

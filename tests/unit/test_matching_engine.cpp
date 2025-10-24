@@ -109,20 +109,48 @@ TEST_F(MatchingEngineTest, TestOrderCancellation) {
 
 TEST_F(MatchingEngineTest, TestMarketDataDissemination) {
     // Set up market data callback
-    bool updateReceived = false;
+    int callbackCount = 0;
+    int snapshotCount = 0;
+    int incrementCount = 0;
+    bool foundBothSides = false;
+    
     engine.subscribeToMarketData(TEST_SYMBOL, [&](const MarketDataUpdate &update) {
         EXPECT_EQ(update.symbol, TEST_SYMBOL);
-        EXPECT_EQ(update.bids.size(), 1);
-        EXPECT_EQ(update.asks.size(), 1);
-        updateReceived = true;
+        callbackCount++;
+        
+        if (update.type == MarketDataUpdate::Type::SNAPSHOT) {
+            snapshotCount++;
+            std::cout << "SNAPSHOT: bids=" << update.bids.size() 
+                      << " asks=" << update.asks.size() << std::endl;
+            // First snapshot should have 1 bid (buy @ 99)
+            if (snapshotCount == 1) {
+                EXPECT_EQ(update.bids.size(), 1);
+                EXPECT_EQ(update.asks.size(), 0);
+            }
+        } else if (update.type == MarketDataUpdate::Type::INCREMENT) {
+            incrementCount++;
+            std::cout << "INCREMENT: bidsChanges=" << update.bidsChanges.size() 
+                      << " asksChanges=" << update.asksChanges.size() << std::endl;
+            // Second update should be incremental with ask changes
+            if (incrementCount == 1) {
+                EXPECT_GT(update.asksChanges.size(), 0);  // Should have ask additions
+                // BBO should show both sides now
+                EXPECT_GT(update.bestBidPrice, 0);
+                EXPECT_GT(update.bestAskPrice, 0);
+                foundBothSides = true;
+            }
+        }
     });
 
     // Submit orders to both sides
     engine.submitOrder(createOrder("buy1", Order::Side::BUY, Order::Type::LIMIT, 99.0, 1.0));
     engine.submitOrder(createOrder("sell1", Order::Side::SELL, Order::Type::LIMIT, 100.0, 1.0));
 
-    // Verify market data update was received
-    EXPECT_TRUE(updateReceived);
+    // Verify market data updates were received
+    EXPECT_EQ(callbackCount, 2);  // 1 snapshot + 1 increment
+    EXPECT_EQ(snapshotCount, 1);
+    EXPECT_EQ(incrementCount, 1);
+    EXPECT_TRUE(foundBothSides);
 
     // Verify order book state
     auto marketData = engine.getMarketData(TEST_SYMBOL);

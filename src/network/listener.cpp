@@ -198,6 +198,25 @@ class Listener::Impl {
 
                                 json resp = { {"status", "ok"}, {"message", "subscribed_market_data"}, {"symbol", symbol} };
                                 self->send(resp.dump());
+
+                                // Immediately send an initial snapshot so the client can build the book
+                                try {
+                                    auto snapshot = self->engine.getMarketData(symbol);
+                                    json response;
+                                    response["type"] = "market_data_snapshot";
+                                    response["symbol"] = snapshot.symbol;
+                                    response["timestamp"] = utils::to_iso8601(snapshot.timestamp);
+                                    response["seqNum"] = snapshot.seqNum; // may be 0 for initial query
+                                    response["bestBidPrice"] = snapshot.bestBidPrice;
+                                    response["bestBidQuantity"] = snapshot.bestBidQuantity;
+                                    response["bestAskPrice"] = snapshot.bestAskPrice;
+                                    response["bestAskQuantity"] = snapshot.bestAskQuantity;
+                                    response["bids"] = snapshot.bids;
+                                    response["asks"] = snapshot.asks;
+                                    self->send(response.dump());
+                                } catch (...) {
+                                    // ignore if snapshot fetch fails
+                                }
                             }
                         }
 

@@ -1,13 +1,17 @@
+// Prometheus exposer shim for IntelliSense only; forward to real library in builds.
 #pragma once
-#include <string>
+
+#if defined(__INTELLISENSE__) || defined(__clangd__)
 #include <memory>
-
+#include <string>
 namespace prometheus {
-
 class Exposer {
 public:
-    Exposer(const std::string&) {}
-    void RegisterCollectable(std::shared_ptr<void>) {}
+    explicit Exposer(const std::string&) {}
+    template <typename T>
+    void RegisterCollectable(const std::shared_ptr<T>&) {}
 };
-
-} // namespace prometheus
+}
+#else
+#include_next <prometheus/exposer.h>
+#endif

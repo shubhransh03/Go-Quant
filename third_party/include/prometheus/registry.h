@@ -1,5 +1,5 @@
+// Lightweight Prometheus stub for IntelliSense
 #pragma once
-#include <memory>
 
 namespace prometheus {
 

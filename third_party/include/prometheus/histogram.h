@@ -1,9 +1,11 @@
+// Lightweight Prometheus stub for IntelliSense
 #pragma once
-#include <vector>
-#include <map>
-#include <string>
 
+// Keep independent of std headers so it parses when opened directly.
 namespace prometheus {
+
+class Registry; // fwd decl
+template <typename T> class Family; // declared in family.h stub
 
 class Histogram {
 public:
@@ -12,17 +14,13 @@ public:
 };
 
 template<typename T>
-class Family {
+class Builder {
 public:
-    Histogram* Add(const std::map<std::string, std::string>&, const std::vector<double>&) {
-        static Histogram inst;
-        return &inst;
-    }
+    Builder& Name(const char*) { return *this; }
+    Builder& Help(const char*) { return *this; }
+    Family<T>& Register(Registry&) { static Family<T> fam; return fam; }
 };
 
-inline Family<Histogram>& BuildHistogram() {
-    static Family<Histogram> fam;
-    return fam;
-}
+inline Builder<Histogram> BuildHistogram() { return {}; }
 
 } // namespace prometheus

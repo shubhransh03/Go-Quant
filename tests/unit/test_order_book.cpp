@@ -1,9 +1,12 @@
 #include <gtest/gtest.h>
+#include <memory>
 #include "engine/order_book.h"
 
 class OrderBookTest : public ::testing::Test {
 protected:
     OrderBook order_book;
+
+    OrderBookTest() : order_book("AAPL") {}
 
     void SetUp() override {
         // Setup code if needed
@@ -15,32 +18,33 @@ protected:
 };
 
 TEST_F(OrderBookTest, AddOrder) {
-    Order order1 = {1, 100.0, 10, OrderType::LIMIT, Side::BUY};
+    auto order1 = std::make_shared<Order>("1", "AAPL", Order::Side::BUY, Order::Type::LIMIT, 100.0, 10);
     order_book.addOrder(order1);
     EXPECT_EQ(order_book.getOrderCount(), 1);
 }
 
 TEST_F(OrderBookTest, ModifyOrder) {
-    Order order1 = {1, 100.0, 10, OrderType::LIMIT, Side::BUY};
+    auto order1 = std::make_shared<Order>("1", "AAPL", Order::Side::BUY, Order::Type::LIMIT, 100.0, 10);
     order_book.addOrder(order1);
     
-    Order modified_order = {1, 101.0, 10, OrderType::LIMIT, Side::BUY};
-    order_book.modifyOrder(modified_order);
+    // Modify the order quantity to 15
+    order_book.modifyOrder("1", 15.0);
     
-    EXPECT_EQ(order_book.getBestBidPrice(), 101.0);
+    EXPECT_EQ(order_book.getBestBidPrice(), 100.0);
+    EXPECT_TRUE(order_book.hasOrder("1"));
 }
 
 TEST_F(OrderBookTest, CancelOrder) {
-    Order order1 = {1, 100.0, 10, OrderType::LIMIT, Side::BUY};
+    auto order1 = std::make_shared<Order>("1", "AAPL", Order::Side::BUY, Order::Type::LIMIT, 100.0, 10);
     order_book.addOrder(order1);
     
-    order_book.cancelOrder(1);
+    order_book.cancelOrder("1");
     EXPECT_EQ(order_book.getOrderCount(), 0);
 }
 
 TEST_F(OrderBookTest, GetBestBidAndAsk) {
-    Order buy_order = {1, 100.0, 10, OrderType::LIMIT, Side::BUY};
-    Order sell_order = {2, 101.0, 10, OrderType::LIMIT, Side::SELL};
+    auto buy_order = std::make_shared<Order>("1", "AAPL", Order::Side::BUY, Order::Type::LIMIT, 100.0, 10);
+    auto sell_order = std::make_shared<Order>("2", "AAPL", Order::Side::SELL, Order::Type::LIMIT, 101.0, 10);
     
     order_book.addOrder(buy_order);
     order_book.addOrder(sell_order);
