@@ -1,0 +1,65 @@
+groups:
+- name: MatchingEngineAlerts
+  rules:
+  - alert: HighLatency
+    expr: histogram_quantile(0.99, rate(order_latency_microseconds_bucket[5m])) > 1000
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: High order processing latency
+      description: 99th percentile latency is above 1ms for more than 1 minute
+
+  - alert: HighRejectionRate
+    expr: sum(rate(rate_limiter_total{type="rejected"}[5m])) / sum(rate(matching_engine_orders_total{type="received"}[5m])) > 0.1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: High rate of rejected orders
+      description: More than 10% of orders are being rejected by rate limiter
+
+  - alert: HighCPUUsage
+    expr: cpu_usage > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: High CPU usage
+      description: CPU usage is above 80% for more than 5 minutes
+
+  - alert: HighMemoryUsage
+    expr: memory_usage_percent > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: High memory usage
+      description: Memory usage is above 80% for more than 5 minutes
+
+  - alert: OrderBookImbalance
+    expr: abs(sum(symbol_stats{type="bid_volume"}) - sum(symbol_stats{type="ask_volume"})) / (sum(symbol_stats{type="bid_volume"}) + sum(symbol_stats{type="ask_volume"})) > 0.3
+    for: 5m
+    labels:
+      severity: info
+    annotations:
+      summary: Significant order book imbalance
+      description: Order book shows more than 30% volume imbalance between bids and asks
+
+  - alert: LowThroughput
+    expr: rate(matching_engine_orders_total{type="received"}[5m]) < 100
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Low order throughput
+      description: Order rate has dropped below 100 orders per second
+
+  - alert: HighErrorRate
+    expr: rate(matching_engine_errors_total[5m]) > 10
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: High error rate
+      description: Error rate is above 10 errors per second
