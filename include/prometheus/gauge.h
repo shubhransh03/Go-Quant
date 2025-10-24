@@ -1,28 +1,23 @@
+// Prometheus gauge shim for IntelliSense only; forward to real library in builds.
 #pragma once
-#include <map>
-#include <string>
 
+#if defined(__INTELLISENSE__) || defined(__clangd__)
+#include "family.h"
 namespace prometheus {
+class Gauge { public: void Set(double) {} double Value() const { return 0.0; } };
 
-class Gauge {
-public:
-    Gauge() = default;
-    void Set(double) {}
-    double Value() const { return 0.0; }
-};
+class Registry; // fwd decl for builder
 
 template<typename T>
-class Family {
+class Builder {
 public:
-    T& Add(const std::map<std::string, std::string>&) {
-        static T inst;
-        return inst;
-    }
+	Builder& Name(const std::string&) { return *this; }
+	Builder& Help(const std::string&) { return *this; }
+	Family<T>& Register(Registry&) { static Family<T> fam; return fam; }
 };
 
-inline Family<Gauge>& BuildGauge() {
-    static Family<Gauge> fam;
-    return fam;
+inline Builder<Gauge> BuildGauge() { return {}; }
 }
-
-} // namespace prometheus
+#else
+#include_next <prometheus/gauge.h>
+#endif

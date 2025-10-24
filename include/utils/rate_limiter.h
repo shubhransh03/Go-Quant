@@ -73,8 +73,8 @@ public:
     }
 
     void addSymbol(const std::string& symbol, 
-                  size_t ordersPerSecond = 1000,
-                  size_t maxBurst = 2000) {
+                  size_t ordersPerSecond = 100,
+                  size_t maxBurst = 200) {
         std::lock_guard<std::mutex> lock(mutex_);
         if (limiters_.find(symbol) == limiters_.end()) {
             // Construct RateLimiter in-place to avoid copying non-copyable members (mutex)
@@ -86,7 +86,10 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         auto it = limiters_.find(symbol);
         if (it == limiters_.end()) {
-            addSymbol(symbol);
+            // Create in-place without calling addSymbol to avoid double-locking
+            const size_t defaultOrdersPerSecond = 100;
+            const size_t defaultMaxBurst = 200;
+            limiters_.try_emplace(symbol, symbol, defaultMaxBurst, static_cast<double>(defaultOrdersPerSecond));
             it = limiters_.find(symbol);
         }
         return it->second.tryConsume();

@@ -149,88 +149,92 @@ endif()
 #     Threads::Threads
 # )
 
-# Benchmarks
-add_executable(performance_benchmark
-    benchmarks/performance_benchmark.cpp
-    ${SOURCES}
-)
-if(APPLE)
-    target_compile_options(performance_benchmark PRIVATE -stdlib=libc++)
-endif()
-target_link_libraries(performance_benchmark
-    PRIVATE
-    nlohmann_json::nlohmann_json
-    Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
-)
-if(BOOST_SYSTEM_LIB)
-    target_link_libraries(performance_benchmark PRIVATE ${BOOST_SYSTEM_LIB})
-else()
-    target_compile_definitions(performance_benchmark PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
-endif()
+option(BUILD_BENCHMARKS "Build benchmark executables" OFF)
 
-# Latency benchmark
-add_executable(latency_benchmark
-    benchmarks/latency_benchmark.cpp
-    ${SOURCES}
-)
-if(APPLE)
-    target_compile_options(latency_benchmark PRIVATE -stdlib=libc++)
-endif()
-target_link_libraries(latency_benchmark
-    PRIVATE
-    nlohmann_json::nlohmann_json
-    Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
-)
-if(BOOST_SYSTEM_LIB)
-    target_link_libraries(latency_benchmark PRIVATE ${BOOST_SYSTEM_LIB})
-else()
-    target_compile_definitions(latency_benchmark PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
-endif()
+if(BUILD_BENCHMARKS)
+    # Benchmarks
+    add_executable(performance_benchmark
+        benchmarks/performance_benchmark.cpp
+        ${SOURCES}
+    )
+    if(APPLE)
+        target_compile_options(performance_benchmark PRIVATE -stdlib=libc++)
+    endif()
+    target_link_libraries(performance_benchmark
+        PRIVATE
+        nlohmann_json::nlohmann_json
+        Threads::Threads
+        prometheus-cpp::core
+        prometheus-cpp::pull
+    )
+    if(BOOST_SYSTEM_LIB)
+        target_link_libraries(performance_benchmark PRIVATE ${BOOST_SYSTEM_LIB})
+    else()
+        target_compile_definitions(performance_benchmark PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+    endif()
 
-# Throughput benchmark
-add_executable(throughput_benchmark
-    benchmarks/throughput_benchmark.cpp
-    ${SOURCES}
-)
-if(APPLE)
-    target_compile_options(throughput_benchmark PRIVATE -stdlib=libc++)
-endif()
-target_link_libraries(throughput_benchmark
-    PRIVATE
-    nlohmann_json::nlohmann_json
-    Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
-)
-if(BOOST_SYSTEM_LIB)
-    target_link_libraries(throughput_benchmark PRIVATE ${BOOST_SYSTEM_LIB})
-else()
-    target_compile_definitions(throughput_benchmark PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
-endif()
+    # Latency benchmark
+    add_executable(latency_benchmark
+        benchmarks/latency_benchmark.cpp
+        ${SOURCES}
+    )
+    if(APPLE)
+        target_compile_options(latency_benchmark PRIVATE -stdlib=libc++)
+    endif()
+    target_link_libraries(latency_benchmark
+        PRIVATE
+        nlohmann_json::nlohmann_json
+        Threads::Threads
+        prometheus-cpp::core
+        prometheus-cpp::pull
+    )
+    if(BOOST_SYSTEM_LIB)
+        target_link_libraries(latency_benchmark PRIVATE ${BOOST_SYSTEM_LIB})
+    else()
+        target_compile_definitions(latency_benchmark PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+    endif()
 
-# Simple bench runner that uses the public engine API
-add_executable(bench_runner
-    benchmarks/bench_runner.cpp
-    ${SOURCES}
-)
-if(APPLE)
-    target_compile_options(bench_runner PRIVATE -stdlib=libc++)
-endif()
-target_link_libraries(bench_runner
-    PRIVATE
-    nlohmann_json::nlohmann_json
-    Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
-)
-if(BOOST_SYSTEM_LIB)
-    target_link_libraries(bench_runner PRIVATE ${BOOST_SYSTEM_LIB})
-else()
-    target_compile_definitions(bench_runner PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+    # Throughput benchmark
+    add_executable(throughput_benchmark
+        benchmarks/throughput_benchmark.cpp
+        ${SOURCES}
+    )
+    if(APPLE)
+        target_compile_options(throughput_benchmark PRIVATE -stdlib=libc++)
+    endif()
+    target_link_libraries(throughput_benchmark
+        PRIVATE
+        nlohmann_json::nlohmann_json
+        Threads::Threads
+        prometheus-cpp::core
+        prometheus-cpp::pull
+    )
+    if(BOOST_SYSTEM_LIB)
+        target_link_libraries(throughput_benchmark PRIVATE ${BOOST_SYSTEM_LIB})
+    else()
+        target_compile_definitions(throughput_benchmark PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+    endif()
+
+    # Simple bench runner that uses the public engine API
+    add_executable(bench_runner
+        benchmarks/bench_runner.cpp
+        ${SOURCES}
+    )
+    if(APPLE)
+        target_compile_options(bench_runner PRIVATE -stdlib=libc++)
+    endif()
+    target_link_libraries(bench_runner
+        PRIVATE
+        nlohmann_json::nlohmann_json
+        Threads::Threads
+        prometheus-cpp::core
+        prometheus-cpp::pull
+    )
+    if(BOOST_SYSTEM_LIB)
+        target_link_libraries(bench_runner PRIVATE ${BOOST_SYSTEM_LIB})
+    else()
+        target_compile_definitions(bench_runner PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+    endif()
 endif()
 
 # Add test targets
@@ -385,6 +389,131 @@ else()
 endif()
 
 add_test(NAME trigger_orders_tests COMMAND test_trigger_orders)
+
+# BBO correctness tests
+add_executable(test_bbo
+    tests/unit/test_bbo.cpp
+    ${SOURCES}
+)
+if(APPLE)
+    target_compile_options(test_bbo PRIVATE -stdlib=libc++)
+endif()
+target_link_libraries(test_bbo
+    PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    prometheus-cpp::core
+    prometheus-cpp::pull
+)
+if(BOOST_SYSTEM_LIB)
+    target_link_libraries(test_bbo PRIVATE ${BOOST_SYSTEM_LIB})
+else()
+    target_compile_definitions(test_bbo PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+endif()
+
+add_test(NAME bbo_tests COMMAND test_bbo)
+
+# WAL modify replay tests
+add_executable(test_wal_modify
+    tests/unit/test_wal_modify.cpp
+    ${SOURCES}
+)
+if(APPLE)
+    target_compile_options(test_wal_modify PRIVATE -stdlib=libc++)
+endif()
+target_link_libraries(test_wal_modify
+    PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    prometheus-cpp::core
+    prometheus-cpp::pull
+)
+if(BOOST_SYSTEM_LIB)
+    target_link_libraries(test_wal_modify PRIVATE ${BOOST_SYSTEM_LIB})
+else()
+    target_compile_definitions(test_wal_modify PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+endif()
+
+add_test(NAME wal_modify_tests COMMAND test_wal_modify)
+
+# Metrics tests
+add_executable(test_metrics
+    tests/unit/test_metrics.cpp
+    ${SOURCES}
+)
+if(APPLE)
+    target_compile_options(test_metrics PRIVATE -stdlib=libc++)
+endif()
+target_link_libraries(test_metrics
+    PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    prometheus-cpp::core
+    prometheus-cpp::pull
+)
+if(BOOST_SYSTEM_LIB)
+    target_link_libraries(test_metrics PRIVATE ${BOOST_SYSTEM_LIB})
+else()
+    target_compile_definitions(test_metrics PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+endif()
+
+add_test(NAME metrics_tests COMMAND test_metrics)
+
+# Rate limiter tests
+add_executable(test_rate_limit
+    tests/unit/test_rate_limit.cpp
+    ${SOURCES}
+)
+if(APPLE)
+    target_compile_options(test_rate_limit PRIVATE -stdlib=libc++)
+endif()
+target_link_libraries(test_rate_limit
+    PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    prometheus-cpp::core
+    prometheus-cpp::pull
+)
+if(BOOST_SYSTEM_LIB)
+    target_link_libraries(test_rate_limit PRIVATE ${BOOST_SYSTEM_LIB})
+else()
+    target_compile_definitions(test_rate_limit PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+endif()
+
+add_test(NAME rate_limit_tests COMMAND test_rate_limit)
+
+# Performance tests
+add_executable(test_performance
+    tests/unit/test_performance.cpp
+    ${SOURCES}
+)
+if(APPLE)
+    target_compile_options(test_performance PRIVATE -stdlib=libc++)
+endif()
+target_link_libraries(test_performance
+    PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    prometheus-cpp::core
+    prometheus-cpp::pull
+)
+if(BOOST_SYSTEM_LIB)
+    target_link_libraries(test_performance PRIVATE ${BOOST_SYSTEM_LIB})
+else()
+    target_compile_definitions(test_performance PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+endif()
+
+add_test(NAME performance_tests COMMAND test_performance)
 
 # Install targets
 install(TARGETS matching_engine

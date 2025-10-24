@@ -1,0 +1,95 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "CMake: Configure",
+      "type": "shell",
+      "command": "cmake",
+      "args": [".."],
+      "options": { "cwd": "${workspaceFolder}/build" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build (Release)",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--build", ".", "--config", "Release", "-j", "4"],
+      "options": { "cwd": "${workspaceFolder}/build" },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "CTest",
+      "type": "shell",
+      "command": "ctest",
+      "args": ["--output-on-failure", "-j", "4"],
+      "options": { "cwd": "${workspaceFolder}/build" },
+      "problemMatcher": [],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Run Specific Test",
+      "type": "shell",
+      "command": "ctest",
+      "args": ["-R", "${input:testName}", "--output-on-failure"],
+      "options": { "cwd": "${workspaceFolder}/build" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Benchmarks",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-c",
+        "echo '=== Latency Benchmark ===' && ./latency_benchmark && echo '\\n=== Throughput Benchmark ===' && ./throughput_benchmark && echo '\\n=== Performance Benchmark ===' && ./performance_benchmark"
+      ],
+      "options": { "cwd": "${workspaceFolder}/build" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Matching Engine",
+      "type": "shell",
+      "command": "./matching_engine",
+      "options": { "cwd": "${workspaceFolder}/build" },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Configure && Build",
+      "dependsOrder": "sequence",
+      "dependsOn": ["CMake: Configure", "Build (Release)"]
+    },
+    {
+      "label": "Build and Test",
+      "dependsOrder": "sequence",
+      "dependsOn": ["Build (Release)", "CTest"]
+    },
+    {
+      "label": "Clean Build",
+      "type": "shell",
+      "command": "rm",
+      "args": ["-rf", "build"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "testName",
+      "type": "promptString",
+      "description": "Enter test name pattern (e.g., matching_engine, wal, fifo)",
+      "default": "matching_engine"
+    }
+  ]
+}

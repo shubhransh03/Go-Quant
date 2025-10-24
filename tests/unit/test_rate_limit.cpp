@@ -10,6 +10,10 @@ protected:
     void SetUp() override {
         MetricsManager::instance().start("0.0.0.0:9092");
     }
+    
+    void TearDown() override {
+        MetricsManager::instance().stop();
+    }
 };
 
 TEST_F(RateLimitTest, BasicRateLimit) {

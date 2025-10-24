@@ -18,9 +18,8 @@ class AdvancedOrderTest : public ::testing::Test {
     }
 
     std::shared_ptr<Order> createOrder(const std::string &id, Order::Side side, Order::Type type, double price,
-                                       double quantity, double stopPrice = 0.0) {
+                                       double quantity) {
         auto order = std::make_shared<Order>(id, TEST_SYMBOL, side, type, price, quantity);
-        if (stopPrice > 0.0) { order->stopPrice = stopPrice; }
         return order;
     }
 };
@@ -31,7 +30,8 @@ TEST_F(AdvancedOrderTest, TestStopLossOrder) {
     engine.submitOrder(createOrder("buy1", Order::Side::BUY, Order::Type::LIMIT, 100.0, 1.0));
 
     // Place a stop loss order that should trigger when price goes below 95
-    auto stopLoss = createOrder("stop1", Order::Side::SELL, Order::Type::STOP_LOSS, 0.0, 1.0, 95.0);
+    // For stop orders, the price field represents the trigger price
+    auto stopLoss = createOrder("stop1", Order::Side::SELL, Order::Type::STOP_LOSS, 95.0, 1.0);
     engine.submitOrder(stopLoss);
 
     // Price is still above stop price, order shouldn't execute
@@ -50,8 +50,8 @@ TEST_F(AdvancedOrderTest, TestStopLimitOrder) {
     engine.submitOrder(createOrder("sell1", Order::Side::SELL, Order::Type::LIMIT, 100.0, 1.0));
     engine.submitOrder(createOrder("buy1", Order::Side::BUY, Order::Type::LIMIT, 100.0, 1.0));
 
-    // Place stop limit order: stop at 95, limit at 94
-    auto stopLimit = createOrder("stop1", Order::Side::SELL, Order::Type::STOP_LIMIT, 94.0, 1.0, 95.0);
+    // Place stop limit order: trigger at 95 (price field is the trigger price for stop orders)
+    auto stopLimit = createOrder("stop1", Order::Side::SELL, Order::Type::STOP_LIMIT, 95.0, 1.0);
     engine.submitOrder(stopLimit);
 
     // Verify order not yet triggered
@@ -71,8 +71,8 @@ TEST_F(AdvancedOrderTest, TestTakeProfitOrder) {
     engine.submitOrder(createOrder("sell1", Order::Side::SELL, Order::Type::LIMIT, 100.0, 1.0));
     engine.submitOrder(createOrder("buy1", Order::Side::BUY, Order::Type::LIMIT, 100.0, 1.0));
 
-    // Place take profit order that triggers at 110
-    auto takeProfit = createOrder("tp1", Order::Side::SELL, Order::Type::TAKE_PROFIT, 0.0, 1.0, 110.0);
+    // Place take profit order that triggers at 110 (price field is the trigger price)
+    auto takeProfit = createOrder("tp1", Order::Side::SELL, Order::Type::TAKE_PROFIT, 110.0, 1.0);
     engine.submitOrder(takeProfit);
 
     // Verify order not triggered

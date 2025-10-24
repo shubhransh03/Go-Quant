@@ -69,14 +69,12 @@ int main() {
 
     std::cout << "\nSubmitting stop orders...\n";
 
-    // Add a stop-loss order
-    auto stopLoss = std::make_shared<Order>("STOP_1", SYMBOL, Order::Side::SELL, Order::Type::STOP_LOSS, 0.0, 1.0);
-    stopLoss->stopPrice = 49950.0;
+    // Add a stop-loss order (use the order price as the trigger price)
+    auto stopLoss = std::make_shared<Order>("STOP_1", SYMBOL, Order::Side::SELL, Order::Type::STOP_LOSS, 49950.0, 1.0);
     engine.submitOrder(stopLoss);
 
-    // Add a take-profit order
-    auto takeProfit = std::make_shared<Order>("TP_1", SYMBOL, Order::Side::SELL, Order::Type::TAKE_PROFIT, 0.0, 1.0);
-    takeProfit->stopPrice = 50100.0;
+    // Add a take-profit order (use the order price as the trigger price)
+    auto takeProfit = std::make_shared<Order>("TP_1", SYMBOL, Order::Side::SELL, Order::Type::TAKE_PROFIT, 50100.0, 1.0);
     engine.submitOrder(takeProfit);
 
     // Wait a bit to see the results

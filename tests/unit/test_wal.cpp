@@ -131,6 +131,77 @@ TEST(WALTest, LogsTrades) {
     std::filesystem::remove(wal, ec);
 }
 
+TEST(WALTest, ReplayAppliesModify) {
+    const std::string SYMBOL = "MOD-TEST";
+    std::string wal = make_temp_wal_path();
+
+    MatchingEngine engine1;
+    ASSERT_TRUE(engine1.startWAL(wal));
+
+    // Submit order and then modify it
+    auto o1 = std::make_shared<Order>("mod1", SYMBOL, Order::Side::BUY, Order::Type::LIMIT, 100.0, 5.0);
+    engine1.submitOrder(o1);
+    ASSERT_TRUE(engine1.modifyOrder("mod1", 3.0)); // Reduce quantity to 3.0
+
+    auto md1 = engine1.getMarketData(SYMBOL);
+    engine1.stopWAL();
+
+    // Replay and verify modified quantity
+    MatchingEngine engine2;
+    ASSERT_TRUE(engine2.replayWAL(wal));
+
+    auto md2 = engine2.getMarketData(SYMBOL);
+    ASSERT_EQ(md1.bids.size(), md2.bids.size());
+    if (!md1.bids.empty() && !md2.bids.empty()) {
+        EXPECT_DOUBLE_EQ(md1.bids[0].second, 3.0); // Original modified quantity
+        EXPECT_DOUBLE_EQ(md2.bids[0].second, 3.0); // Replayed quantity
+    }
+
+    std::error_code ec;
+    std::filesystem::remove(wal, ec);
+}
+
+TEST(WALTest, ComplexReplaySubmitCancelModify) {
+    const std::string SYMBOL = "COMPLEX";
+    std::string wal = make_temp_wal_path();
+
+    MatchingEngine engine1;
+    ASSERT_TRUE(engine1.startWAL(wal));
+
+    // Complex sequence: submit multiple, cancel some, modify others
+    engine1.submitOrder(std::make_shared<Order>("c1", SYMBOL, Order::Side::BUY, Order::Type::LIMIT, 100.0, 1.0));
+    engine1.submitOrder(std::make_shared<Order>("c2", SYMBOL, Order::Side::BUY, Order::Type::LIMIT, 99.0, 2.0));
+    engine1.submitOrder(std::make_shared<Order>("c3", SYMBOL, Order::Side::SELL, Order::Type::LIMIT, 101.0, 1.5));
+    
+    engine1.cancelOrder("c2"); // Cancel second buy
+    engine1.modifyOrder("c1", 0.5); // Modify first buy quantity
+    
+    engine1.submitOrder(std::make_shared<Order>("c4", SYMBOL, Order::Side::SELL, Order::Type::LIMIT, 102.0, 3.0));
+
+    auto md1 = engine1.getMarketData(SYMBOL);
+    size_t count1 = engine1.getOrderCount(SYMBOL);
+    engine1.stopWAL();
+
+    // Replay and verify exact state
+    MatchingEngine engine2;
+    ASSERT_TRUE(engine2.replayWAL(wal));
+
+    auto md2 = engine2.getMarketData(SYMBOL);
+    size_t count2 = engine2.getOrderCount(SYMBOL);
+
+    EXPECT_EQ(count1, count2); // Should have 3 orders (c1 modified, c3, c4)
+    EXPECT_EQ(count1, 3);
+    
+    // Verify BBO matches
+    EXPECT_DOUBLE_EQ(md1.bestBidPrice, md2.bestBidPrice);
+    EXPECT_DOUBLE_EQ(md1.bestBidQuantity, md2.bestBidQuantity);
+    EXPECT_DOUBLE_EQ(md1.bestAskPrice, md2.bestAskPrice);
+    EXPECT_DOUBLE_EQ(md1.bestAskQuantity, md2.bestAskQuantity);
+
+    std::error_code ec;
+    std::filesystem::remove(wal, ec);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

@@ -4,6 +4,8 @@
 #include <vector>
 #include "utils/memory_pool.h"
 #include "utils/order_pool.h"
+#include "utils/ring_buffer.h"
+#include "engine/matching_engine.h"
 
 class MemoryPoolTest : public ::testing::Test {
 protected:

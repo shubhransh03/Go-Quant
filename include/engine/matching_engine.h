@@ -135,6 +135,11 @@ class MatchingEngine {
     void publishMarketDataUpdate(const std::string &symbol);
     void publishTrade(const Trade &trade);
     OrderBook &getOrCreateOrderBook(const std::string &symbol);
+    void checkTriggers(const std::string &symbol, double lastTradePrice);
+    
+    // Unlocked versions for internal use (assume mutex already held)
+    bool cancelOrderUnlocked(const std::string &orderId, std::string &affectedSymbol);
+    bool modifyOrderUnlocked(const std::string &orderId, double newQuantity, std::string &affectedSymbol);
 
     // Thread safety
     mutable std::mutex mutex;
@@ -146,6 +151,7 @@ class MatchingEngine {
   // Runtime metrics
   std::atomic<uint64_t> metric_orders_received{0};
   std::atomic<uint64_t> metric_orders_cancelled{0};
+  std::atomic<uint64_t> metric_orders_matched{0};
   std::atomic<uint64_t> metric_trades_executed{0};
 };
 

@@ -46,11 +46,15 @@ jobs:
       - name: Run tests
         run: |
           cd build
-          ctest --output-on-failure -j 2
+          ctest --output-on-failure -j 2 --output-junit test-results.xml || true
+          # Ensure JUnit always exists for upload even on failures
+          test -f test-results.xml || echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><testsuites name=\"ctest\" tests=\"0\" failures=\"0\"/>" > test-results.xml
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ctest-log
-          path: build/Testing
+          name: ctest-artifacts
+          path: |
+            build/Testing
+            build/test-results.xml

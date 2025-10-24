@@ -1,17 +1,23 @@
+// Legacy WebSocket session implementation (not part of current build).
+// Kept for reference and IntelliSense only.
+
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/beast/core/flat_buffer.hpp>
+#include <boost/beast/websocket.hpp>
+#include <nlohmann/json.hpp>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <string>
+
 #include "network/session.h"
 #include "engine/matching_engine.h"
-#include <iostream>
-#include <string>
+#include "utils/time_utils.h"
 
 Session::Session(int sessionId) : sessionId(sessionId) {
     // Initialize session resources
 }
-
-#include <boost/asio/strand.hpp>
-#include <boost/beast/websocket.hpp>
-#include <nlohmann/json.hpp>
-#include "network/session.h"
-#include "utils/time_utils.h"
 
 using json = nlohmann::json;
 namespace websocket = boost::beast::websocket;
@@ -19,7 +25,10 @@ using tcp = boost::asio::ip::tcp;
 
 class WebSocketSession : public Session, public std::enable_shared_from_this<WebSocketSession> {
   public:
-    WebSocketSession(tcp::socket socket, MatchingEngine &engine) : ws_(std::move(socket)), engine_(engine) {}
+        WebSocketSession(tcp::socket socket, MatchingEngine &engine)
+                : Session(0), // legacy placeholder session id for IntelliSense-only build
+                    ws_(std::move(socket)),
+                    engine_(engine) {}
 
     void start() {
         ws_.async_accept([self = shared_from_this()](boost::system::error_code ec) {

@@ -4,36 +4,29 @@
 #include <cstring>
 #include <unistd.h>
 #include "engine/matching_engine.h"
-#include "network/session.h"
+#include "network/listener.h"
 
 int main() {
     // Initialize the matching engine
     MatchingEngine engine;
 
-    // Start the engine
-    if (!engine.initialize()) {
-        std::cerr << "Failed to initialize the matching engine." << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    // Set up a network listener
-    Listener listener(engine);
-    if (!listener.start(8080)) {
+    // Set up and start a network listener on port 8080
+    Listener listener(engine, 8080);
+    if (!listener.startListening()) {
         std::cerr << "Failed to start the listener on port 8080." << std::endl;
         return EXIT_FAILURE;
     }
 
     std::cout << "Matching engine is running. Listening for connections..." << std::endl;
 
-    // Main event loop
+    // Main event loop (process events in background, optionally do periodic tasks)
     while (true) {
-        listener.acceptConnections();
+        listener.processEvents();
         sleep(1); // Sleep to prevent busy waiting
     }
 
     // Cleanup (not reached in this example)
     listener.stop();
-    engine.shutdown();
 
     return EXIT_SUCCESS;
 }

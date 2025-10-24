@@ -1,0 +1,84 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        brew install cmake boost nlohmann-json googletest prometheus-cpp
+    
+    - name: Configure CMake
+      run: |
+        mkdir -p build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release ..
+    
+    - name: Build
+      run: |
+        cd build
+        cmake --build . --config Release -j4
+    
+    - name: Run tests
+      run: |
+        cd build
+        ctest --output-on-failure -j4
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-macos
+        path: build/Testing/Temporary/LastTest.log
+
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake build-essential libboost-all-dev nlohmann-json3-dev libgtest-dev
+        # Build and install prometheus-cpp from source
+        git clone https://github.com/jupp0r/prometheus-cpp.git
+        cd prometheus-cpp
+        git submodule update --init --recursive
+        mkdir build && cd build
+        cmake .. -DBUILD_SHARED_LIBS=ON -DENABLE_PUSH=OFF -DENABLE_COMPRESSION=OFF
+        make -j4
+        sudo make install
+        cd ../..
+    
+    - name: Configure CMake
+      run: |
+        mkdir -p build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release ..
+    
+    - name: Build
+      run: |
+        cd build
+        cmake --build . --config Release -j4
+    
+    - name: Run tests
+      run: |
+        cd build
+        ctest --output-on-failure -j4
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-linux
+        path: build/Testing/Temporary/LastTest.log

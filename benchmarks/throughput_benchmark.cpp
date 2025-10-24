@@ -1,6 +1,7 @@
 #include <iostream>
 #include <chrono>
 #include <vector>
+#include <memory>
 #include "engine/matching_engine.h"
 
 class ThroughputBenchmark {
@@ -8,7 +9,7 @@ public:
     ThroughputBenchmark(MatchingEngine& engine) : engine(engine) {}
 
     void run(int numOrders) {
-        std::vector<Order> orders = generateOrders(numOrders);
+        std::vector<std::shared_ptr<Order>> orders = generateOrders(numOrders);
         auto start = std::chrono::high_resolution_clock::now();
 
         for (const auto& order : orders) {
@@ -25,10 +26,17 @@ public:
 private:
     MatchingEngine& engine;
 
-    std::vector<Order> generateOrders(int numOrders) {
-        std::vector<Order> orders;
+    std::vector<std::shared_ptr<Order>> generateOrders(int numOrders) {
+        std::vector<std::shared_ptr<Order>> orders;
         for (int i = 0; i < numOrders; ++i) {
-            orders.emplace_back(Order{"BTC/USD", 1.0, 50000.0, OrderType::LIMIT, OrderSide::BUY});
+            orders.push_back(std::make_shared<Order>(
+                "ORDER_" + std::to_string(i),
+                "BTC-USDT",
+                Order::Side::BUY,
+                Order::Type::LIMIT,
+                50000.0,
+                1.0
+            ));
         }
         return orders;
     }
@@ -36,7 +44,6 @@ private:
 
 int main() {
     MatchingEngine engine;
-    engine.initialize();
 
     ThroughputBenchmark benchmark(engine);
     benchmark.run(10000); // Adjust the number of orders as needed

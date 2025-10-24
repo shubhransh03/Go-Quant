@@ -15,32 +15,37 @@ TEST(TriggerOrdersTest, StopLossActivationAndPersistence) {
 
     // Submit a stop-loss sell order that should NOT activate yet
     auto stop = engine.createOrder(SYM, Order::Side::SELL, Order::Type::STOP_LOSS, 99.0, 1.0);
-    stop->setId("STOP1");
     engine.submitOrder(stop);
 
     EXPECT_EQ(engine.getTriggerOrderCount(SYM), 1);
 
-    // Submit a buy market order that will trade through and produce a last trade price >= 100
+    // Submit a buy market order that will trade at 100
     auto taker = engine.createOrder(SYM, Order::Side::BUY, Order::Type::MARKET, 0.0, 1.0);
     engine.submitOrder(taker);
 
-    // After trade, stop-loss should not trigger because it was a sell stop below the last trade price
-    // Now submit a sell that moves price down to trigger stop
-    auto aggressiveSell = engine.createOrder(SYM, Order::Side::SELL, Order::Type::LIMIT, 98.0, 1.0);
-    engine.submitOrder(aggressiveSell);
+    // After trade at 100, stop-loss should not trigger (sell stop triggers when price <= 99)
+    EXPECT_EQ(engine.getTriggerOrderCount(SYM), 1);
 
-    // Now last trade price should be <= 98 and stop-loss should have been activated (converted)
-    // Allow some operations to run; check trigger orders count (should be 0)
+    // To trigger the stop, we need a trade at or below 99
+    // First place a buy order at 98
+    auto buy98 = engine.createOrder(SYM, Order::Side::BUY, Order::Type::LIMIT, 98.0, 1.0);
+    engine.submitOrder(buy98);
+
+    // Now submit a sell that will trade at 98
+    auto sell98 = engine.createOrder(SYM, Order::Side::SELL, Order::Type::LIMIT, 98.0, 1.0);
+    engine.submitOrder(sell98);
+
+    // Now last trade price is 98 <= 99, so stop-loss should have been activated
     EXPECT_EQ(engine.getTriggerOrderCount(SYM), 0);
 
     engine.stopWAL();
 
-    // Replay WAL into a fresh engine to verify persistence of past submits (we expect no trigger orders left)
+    // Replay WAL into a fresh engine to verify persistence
     MatchingEngine engine2;
     bool ok = engine2.replayWAL(walPath);
     EXPECT_TRUE(ok);
 
-    // After replay, trigger orders for symbol should be 0 (previous stop got activated)
+    // After replay, trigger orders should be 0 (stop got activated during original run)
     EXPECT_EQ(engine2.getTriggerOrderCount(SYM), 0);
 }
 

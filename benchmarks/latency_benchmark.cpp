@@ -1,13 +1,20 @@
 #include <iostream>
 #include <chrono>
 #include <vector>
+#include <memory>
 #include "engine/matching_engine.h"
-#include "utils/metrics.h"
 
 void benchmarkLatency(MatchingEngine& engine, int numOrders) {
-    std::vector<Order> orders;
+    std::vector<std::shared_ptr<Order>> orders;
     for (int i = 0; i < numOrders; ++i) {
-        orders.emplace_back(Order{i, "BUY", 100 + i, i}); // Sample orders
+        orders.push_back(std::make_shared<Order>(
+            "ORDER_" + std::to_string(i),
+            "BTC-USDT",
+            Order::Side::BUY,
+            Order::Type::LIMIT,
+            50000.0 + i,
+            1.0
+        ));
     }
 
     auto start = std::chrono::high_resolution_clock::now();
@@ -27,7 +34,6 @@ void benchmarkLatency(MatchingEngine& engine, int numOrders) {
 
 int main(int argc, char* argv[]) {
     MatchingEngine engine;
-    engine.initialize();
 
     int numOrders = 1000; // Example number of orders to benchmark
     benchmarkLatency(engine, numOrders);

@@ -1,8 +1,9 @@
 {
   "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
   // On Windows VS Code use MSVC/clang-cl; set to 'cl.exe' if available on PATH. On macOS/Linux, override via environment or user settings.
-  "C_Cpp.default.compilerPath": "cl.exe",
-  "C_Cpp.default.intelliSenseMode": "msvc-x64",
+  // Use clang++ on macOS for correct libc++ header resolution
+  "C_Cpp.default.compilerPath": "/usr/bin/clang++",
+  "C_Cpp.default.intelliSenseMode": "clang-x64",
   "C_Cpp.default.cppStandard": "c++17",
   "C_Cpp.default.includePath": [
     "${workspaceFolder}/include",
@@ -69,6 +70,7 @@
     "stdexcept": "cpp",
     "streambuf": "cpp",
     "thread": "cpp",
-    "typeinfo": "cpp"
+    "typeinfo": "cpp",
+    "optional": "cpp"
   }
 }

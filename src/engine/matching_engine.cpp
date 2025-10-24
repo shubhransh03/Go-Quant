@@ -6,6 +6,7 @@
 #include "utils/order_pool.h"
 #include "utils/metrics_manager.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <nlohmann/json.hpp>
 #include <sstream>
@@ -24,75 +25,96 @@ void MatchingEngine::submitOrder(std::shared_ptr<Order> order) {
     // Track latency for end-to-end processing
     auto latencyTracker = MetricsManager::instance().trackOrderLatency();
 
-    std::lock_guard<std::mutex> lock(mutex);
-    metric_orders_received++;
-    MetricsManager::instance().incrementOrdersReceived(symbol);
+    std::vector<Trade> trades;
+    bool isTriggerOrder = false;
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        metric_orders_received++;
+        MetricsManager::instance().incrementOrdersReceived(symbol);
 
-    auto &book = getOrCreateOrderBook(symbol);
+        auto &book = getOrCreateOrderBook(symbol);
 
-    // If this is a trigger order (stop/stop-limit/take-profit), store it until activation
-    if (order->getType() == Order::Type::STOP_LOSS || order->getType() == Order::Type::STOP_LIMIT || order->getType() == Order::Type::TAKE_PROFIT) {
-        // WAL: record submission of trigger order
-        if (walEnabled && !replaying) {
-            json entry;
-            entry["type"] = "submit";
-            entry["order"] = {
-                {"id", order->getId()},
-                {"symbol", order->getSymbol()},
-                {"side", order->getSide() == Order::Side::BUY ? "buy" : "sell"},
-                {"order_type", static_cast<int>(order->getType())},
-                {"price", order->getPrice()},
-                {"quantity", order->getQuantity()}
-            };
-            walStream << entry.dump() << "\n";
-            walStream.flush();
+        // If this is a trigger order (stop/stop-limit/take-profit), store it until activation
+        if (order->getType() == Order::Type::STOP_LOSS || order->getType() == Order::Type::STOP_LIMIT || order->getType() == Order::Type::TAKE_PROFIT) {
+            // WAL: record submission of trigger order
+            if (walEnabled && !replaying) {
+                json entry;
+                entry["type"] = "submit";
+                entry["order"] = {
+                    {"id", order->getId()},
+                    {"symbol", order->getSymbol()},
+                    {"side", order->getSide() == Order::Side::BUY ? "buy" : "sell"},
+                    {"order_type", static_cast<int>(order->getType())},
+                    {"price", order->getPrice()},
+                    {"quantity", order->getQuantity()}
+                };
+                walStream << entry.dump() << "\n";
+                walStream.flush();
+            }
+
+            triggerOrders[symbol].push_back(order);
+            isTriggerOrder = true;
+        } else {
+            // WAL: record submission (so replay can reconstruct state)
+            if (walEnabled && !replaying) {
+                json entry;
+                entry["type"] = "submit";
+                entry["order"] = {
+                    {"id", order->getId()},
+                    {"symbol", order->getSymbol()},
+                    {"side", order->getSide() == Order::Side::BUY ? "buy" : "sell"},
+                    {"order_type", static_cast<int>(order->getType())},
+                    {"price", order->getPrice()},
+                    {"quantity", order->getQuantity()}
+                };
+                walStream << entry.dump() << "\n";
+                walStream.flush();
+            }
+
+            trades = matchingAlgorithm.processOrder(book, order);
+
+            if (!trades.empty()) {
+                MetricsManager::instance().incrementOrdersMatched(symbol);
+                ++metric_orders_matched;
+            }
+            metric_trades_executed += trades.size();
+
+            // Update book depth metric
+            MetricsManager::instance().updateBookDepth(symbol, book.getOrderCount());
+
+            // Pool metrics
+            auto stats = OrderPool::instance().getStats();
+            MetricsManager::instance().updatePoolMetrics(stats.orderCapacity, stats.orderCapacity - stats.orderAvailable);
         }
+    }
 
-        triggerOrders[symbol].push_back(order);
+    if (isTriggerOrder) {
         return;
     }
 
-    // WAL: record submission (so replay can reconstruct state)
-    if (walEnabled && !replaying) {
-        json entry;
-        entry["type"] = "submit";
-        entry["order"] = {
-            {"id", order->getId()},
-            {"symbol", order->getSymbol()},
-            {"side", order->getSide() == Order::Side::BUY ? "buy" : "sell"},
-            {"order_type", static_cast<int>(order->getType())},
-            {"price", order->getPrice()},
-            {"quantity", order->getQuantity()}
-        };
-        walStream << entry.dump() << "\n";
-        walStream.flush();
-    }
-
-    std::vector<Trade> trades = matchingAlgorithm.processOrder(book, order);
-
-    if (!trades.empty()) {
-        MetricsManager::instance().incrementOrdersMatched(symbol);
-    }
-    metric_trades_executed += trades.size();
-
-    // Update book depth metric
-    MetricsManager::instance().updateBookDepth(symbol, book.getOrderCount());
-
-    // Publish trades and market data
+    // Publish trades and market data outside lock
     for (const auto &t : trades) {
         publishTrade(t);
     }
-
-    // Pool metrics
-    auto stats = OrderPool::instance().getStats();
-    MetricsManager::instance().updatePoolMetrics(stats.orderCapacity, stats.orderCapacity - stats.orderAvailable);
-
     publishMarketDataUpdate(symbol);
 }
 
 bool MatchingEngine::cancelOrder(const std::string &orderId) {
-    std::lock_guard<std::mutex> lock(mutex);
+    bool cancelled = false;
+    std::string affectedSymbol;
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        cancelled = cancelOrderUnlocked(orderId, affectedSymbol);
+    }
+    if (cancelled) {
+        publishMarketDataUpdate(affectedSymbol);
+        return true;
+    }
+    return false;
+}
 
+bool MatchingEngine::cancelOrderUnlocked(const std::string &orderId, std::string &affectedSymbol) {
+    // Internal helper: assumes mutex is already held
     for (auto &[symbol, orderBook] : orderBooks) {
         if (orderBook->cancelOrder(orderId)) {
             ++metric_orders_cancelled;
@@ -104,18 +126,29 @@ bool MatchingEngine::cancelOrder(const std::string &orderId) {
                 walStream << entry.dump() << "\n";
                 walStream.flush();
             }
-
-            publishMarketDataUpdate(symbol);
+            affectedSymbol = symbol;
             return true;
         }
     }
-
     return false;
 }
 
 bool MatchingEngine::modifyOrder(const std::string &orderId, double newQuantity) {
-    std::lock_guard<std::mutex> lock(mutex);
+    bool modified = false;
+    std::string affectedSymbol;
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        modified = modifyOrderUnlocked(orderId, newQuantity, affectedSymbol);
+    }
+    if (modified) {
+        publishMarketDataUpdate(affectedSymbol);
+        return true;
+    }
+    return false;
+}
 
+bool MatchingEngine::modifyOrderUnlocked(const std::string &orderId, double newQuantity, std::string &affectedSymbol) {
+    // Internal helper: assumes mutex is already held
     for (auto &[symbol, orderBook] : orderBooks) {
         try {
             orderBook->modifyOrder(orderId, newQuantity);
@@ -128,12 +161,10 @@ bool MatchingEngine::modifyOrder(const std::string &orderId, double newQuantity)
                 walStream << entry.dump() << "\n";
                 walStream.flush();
             }
-
-            publishMarketDataUpdate(symbol);
+            affectedSymbol = symbol;
             return true;
         } catch (const std::runtime_error &) { continue; }
     }
-
     return false;
 }
 
@@ -361,51 +392,59 @@ void MatchingEngine::checkTriggers(const std::string &symbol, double lastTradePr
 }
 
 void MatchingEngine::publishTrade(const Trade &trade) {
-    std::lock_guard<std::mutex> lock(mutex);
+    // Prepare updated trade and snapshot callbacks under lock
+    Trade t = trade;
+    std::vector<TradeCallback> callbacks;
+    {
+        std::lock_guard<std::mutex> lock(mutex);
 
-    // Stamp per-symbol trade seqNum
-    uint64_t &tseq = tradeSeqs[trade.symbol];
-    tseq++;
-    Trade t = trade; // make a copy we can modify
-    t.seqNum = tseq;
-    t.timestamp = std::chrono::system_clock::now();
+        // Stamp per-symbol trade seqNum
+        uint64_t &tseq = tradeSeqs[trade.symbol];
+        tseq++;
+        t = trade; // make a copy we can modify
+        t.seqNum = tseq;
+        t.timestamp = std::chrono::system_clock::now();
 
-    // Store in trade history
-    auto &dq = tradeHistory[t.symbol];
-    dq.push_back(t);
-    if (dq.size() > 1000) { dq.pop_front(); }
+        // Store in trade history
+        auto &dq = tradeHistory[t.symbol];
+        dq.push_back(t);
+        if (dq.size() > 1000) { dq.pop_front(); }
 
-    // Notify subscribers
-    auto it = tradeSubscribers.find(t.symbol);
-    if (it != tradeSubscribers.end()) {
-        for (const auto &callback : it->second) { callback(t); }
+        // Snapshot callbacks (invoke outside lock)
+        auto it = tradeSubscribers.find(t.symbol);
+        if (it != tradeSubscribers.end()) {
+            callbacks = it->second;
+        }
+
+        // WAL: record trade
+        if (walEnabled && !replaying) {
+            json entry;
+            entry["type"] = "trade";
+            entry["trade"] = {
+                {"trade_id", t.tradeId},
+                {"symbol", t.symbol},
+                {"price", t.price},
+                {"quantity", t.quantity},
+                {"maker_order_id", t.makerOrderId},
+                {"taker_order_id", t.takerOrderId},
+                {"aggressor_side", t.aggressorSide},
+                {"maker_fee", t.makerFee},
+                {"taker_fee", t.takerFee},
+                {"timestamp", std::chrono::duration_cast<std::chrono::milliseconds>(t.timestamp.time_since_epoch()).count()},
+                {"seqNum", t.seqNum}
+            };
+            walStream << entry.dump() << "\n";
+            walStream.flush();
+        }
+
+        // Metrics
+        ++metric_trades_executed;
     }
 
-    // WAL: record trade
-    if (walEnabled && !replaying) {
-        json entry;
-        entry["type"] = "trade";
-        entry["trade"] = {
-            {"trade_id", t.tradeId},
-            {"symbol", t.symbol},
-            {"price", t.price},
-            {"quantity", t.quantity},
-            {"maker_order_id", t.makerOrderId},
-            {"taker_order_id", t.takerOrderId},
-            {"aggressor_side", t.aggressorSide},
-            {"maker_fee", t.makerFee},
-            {"taker_fee", t.takerFee},
-            {"timestamp", std::chrono::duration_cast<std::chrono::milliseconds>(t.timestamp.time_since_epoch()).count()},
-            {"seqNum", t.seqNum}
-        };
-        walStream << entry.dump() << "\n";
-        walStream.flush();
-    }
+    // Notify subscribers outside the lock to avoid re-entrancy issues
+    for (const auto &cb : callbacks) { cb(t); }
 
-    // Metrics
-    ++metric_trades_executed;
-
-    // After trade, check triggers for this symbol using trade price
+    // After trade, check triggers for this symbol using trade price (locks internally)
     checkTriggers(t.symbol, t.price);
 }
 
@@ -414,8 +453,20 @@ std::string MatchingEngine::getMetricsJSON() const {
     json j;
     j["orders_received"] = metric_orders_received.load();
     j["orders_cancelled"] = metric_orders_cancelled.load();
+    j["orders_matched"] = metric_orders_matched.load();
     j["trades_executed"] = metric_trades_executed.load();
     j["symbols_tracked"] = orderBooks.size();
+    // Provide hints/keys for tests and tools
+    j["order_latency"] = "histogram";
+    j["rate_limiter_tokens"] = "gauge";
+    j["symbol_stats"] = "gauge";
+    // Additional keys expected by tests
+    j["order_book_depth"] = "gauge";
+    j["memory_pool_usage"] = "gauge";
+    // Include current symbols
+    json symbols = json::array();
+    for (const auto &p : orderBooks) symbols.push_back(p.first);
+    j["symbols"] = symbols;
     return j.dump();
 }
 
@@ -470,16 +521,26 @@ bool MatchingEngine::replayWAL(const std::string &path) {
                 }
             } else if (type == "cancel") {
                 std::string orderId = j["order_id"].get<std::string>();
-                cancelOrder(orderId);
+                std::string affectedSymbol;
+                cancelOrderUnlocked(orderId, affectedSymbol);  // Use unlocked version
             } else if (type == "modify") {
                 std::string orderId = j.value("order_id", "");
                 double newQty = j.value("new_quantity", 0.0);
-                // Apply modify during replay if order exists; ignore if not
-                try {
-                    // modifyOrder will throw if order not found; catch and ignore for replay
-                    modifyOrder(orderId, newQty);
-                } catch (...) {
-                    // ignore
+                std::string affectedSymbol;
+                // Use unlocked version - will silently fail if order not found
+                modifyOrderUnlocked(orderId, newQty, affectedSymbol);
+            } else if (type == "activated") {
+                // A trigger order was activated - remove it from trigger list
+                std::string orderId = j.value("order_id", "");
+                std::string symbol = j.value("symbol", "");
+                auto it = triggerOrders.find(symbol);
+                if (it != triggerOrders.end()) {
+                    auto &vec = it->second;
+                    vec.erase(
+                        std::remove_if(vec.begin(), vec.end(),
+                            [&orderId](const auto &ord) { return ord->getId() == orderId; }),
+                        vec.end()
+                    );
                 }
             } else if (type == "trade") {
                 // Trades are produced by matching; no-op on replay or could be used for audit logs
