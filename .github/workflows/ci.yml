@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        config: [default]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git cmake libboost-all-dev libgtest-dev libspdlog-dev
+          # nlohmann-json-dev may be available via apt
+          sudo apt-get install -y nlohmann-json3-dev
+          # Build gtest if needed
+          cd /usr/src/gtest && sudo cmake . && sudo make && sudo cp lib/*.a /usr/lib || true
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew update
+          brew install cmake nlohmann-json googletest
+
+      - name: Configure
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+
+      - name: Build
+        run: |
+          cd build
+          cmake --build . --config Release -j 2
+
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure -j 2
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-log
+          path: build/Testing

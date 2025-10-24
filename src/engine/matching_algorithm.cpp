@@ -108,10 +108,18 @@ Trade MatchingAlgorithm::executeTrade(OrderBook &orderBook, const std::shared_pt
     Trade t(makerOrder->getSymbol(), execPrice, quantity, makerOrder->getId(),
             takerOrder->getId(), takerOrder->getSide() == Order::Side::BUY ? "buy" : "sell");
 
-    // Basic maker-taker fees (can be overridden by FeeModel at engine level later)
-    constexpr double makerRate = 0.001; // 0.1%
-    constexpr double takerRate = 0.002; // 0.2%
-    t.makerFee = execPrice * quantity * makerRate;
-    t.takerFee = execPrice * quantity * takerRate;
+    // Use FeeModel if provided, otherwise fallback to defaults
+    if (feeModel_) {
+        auto calc = feeModel_->calculateFees(makerOrder->getSymbol(), execPrice, quantity);
+        // FeeModel::calculateFees returns absolute amounts for maker/taker fees
+        // Maker rebate is expressed via negative makerFee in schedule; we assign makerFee as (makerFee - makerRebate)
+        t.makerFee = calc.makerFee - calc.makerRebate;
+        t.takerFee = calc.takerFee;
+    } else {
+        constexpr double makerRate = 0.001; // 0.1%
+        constexpr double takerRate = 0.002; // 0.2%
+        t.makerFee = execPrice * quantity * makerRate;
+        t.takerFee = execPrice * quantity * takerRate;
+    }
     return t;
 }

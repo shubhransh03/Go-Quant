@@ -170,8 +170,221 @@ else()
     target_compile_definitions(performance_benchmark PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
 endif()
 
+# Latency benchmark
+add_executable(latency_benchmark
+    benchmarks/latency_benchmark.cpp
+    ${SOURCES}
+)
+if(APPLE)
+    target_compile_options(latency_benchmark PRIVATE -stdlib=libc++)
+endif()
+target_link_libraries(latency_benchmark
+    PRIVATE
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    prometheus-cpp::core
+    prometheus-cpp::pull
+)
+if(BOOST_SYSTEM_LIB)
+    target_link_libraries(latency_benchmark PRIVATE ${BOOST_SYSTEM_LIB})
+else()
+    target_compile_definitions(latency_benchmark PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+endif()
+
+# Throughput benchmark
+add_executable(throughput_benchmark
+    benchmarks/throughput_benchmark.cpp
+    ${SOURCES}
+)
+if(APPLE)
+    target_compile_options(throughput_benchmark PRIVATE -stdlib=libc++)
+endif()
+target_link_libraries(throughput_benchmark
+    PRIVATE
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    prometheus-cpp::core
+    prometheus-cpp::pull
+)
+if(BOOST_SYSTEM_LIB)
+    target_link_libraries(throughput_benchmark PRIVATE ${BOOST_SYSTEM_LIB})
+else()
+    target_compile_definitions(throughput_benchmark PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+endif()
+
+# Simple bench runner that uses the public engine API
+add_executable(bench_runner
+    benchmarks/bench_runner.cpp
+    ${SOURCES}
+)
+if(APPLE)
+    target_compile_options(bench_runner PRIVATE -stdlib=libc++)
+endif()
+target_link_libraries(bench_runner
+    PRIVATE
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    prometheus-cpp::core
+    prometheus-cpp::pull
+)
+if(BOOST_SYSTEM_LIB)
+    target_link_libraries(bench_runner PRIVATE ${BOOST_SYSTEM_LIB})
+else()
+    target_compile_definitions(bench_runner PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+endif()
+
 # Add test targets
 add_test(NAME matching_engine_tests COMMAND test_matching_engine)
+
+# WAL tests
+add_executable(test_wal
+    tests/unit/test_wal.cpp
+    ${SOURCES}
+)
+if(APPLE)
+    target_compile_options(test_wal PRIVATE -stdlib=libc++)
+endif()
+target_link_libraries(test_wal
+    PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    prometheus-cpp::core
+    prometheus-cpp::pull
+)
+if(BOOST_SYSTEM_LIB)
+    target_link_libraries(test_wal PRIVATE ${BOOST_SYSTEM_LIB})
+else()
+    target_compile_definitions(test_wal PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+endif()
+
+add_test(NAME wal_tests COMMAND test_wal)
+
+# Persistence tests
+add_executable(test_persistence
+    tests/unit/test_persistence.cpp
+    ${SOURCES}
+)
+if(APPLE)
+    target_compile_options(test_persistence PRIVATE -stdlib=libc++)
+endif()
+target_link_libraries(test_persistence
+    PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    prometheus-cpp::core
+    prometheus-cpp::pull
+)
+if(BOOST_SYSTEM_LIB)
+    target_link_libraries(test_persistence PRIVATE ${BOOST_SYSTEM_LIB})
+else()
+    target_compile_definitions(test_persistence PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+endif()
+
+add_test(NAME persistence_tests COMMAND test_persistence)
+
+# FIFO / no trade-through tests
+add_executable(test_fifo
+    tests/unit/test_fifo.cpp
+    ${SOURCES}
+)
+if(APPLE)
+    target_compile_options(test_fifo PRIVATE -stdlib=libc++)
+endif()
+target_link_libraries(test_fifo
+    PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    prometheus-cpp::core
+    prometheus-cpp::pull
+)
+if(BOOST_SYSTEM_LIB)
+    target_link_libraries(test_fifo PRIVATE ${BOOST_SYSTEM_LIB})
+else()
+    target_compile_definitions(test_fifo PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+endif()
+
+add_test(NAME fifo_tests COMMAND test_fifo)
+
+# Modify order tests
+add_executable(test_modify_order
+    tests/unit/test_modify_order.cpp
+    ${SOURCES}
+)
+if(APPLE)
+    target_compile_options(test_modify_order PRIVATE -stdlib=libc++)
+endif()
+target_link_libraries(test_modify_order
+    PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    prometheus-cpp::core
+    prometheus-cpp::pull
+)
+if(BOOST_SYSTEM_LIB)
+    target_link_libraries(test_modify_order PRIVATE ${BOOST_SYSTEM_LIB})
+else()
+    target_compile_definitions(test_modify_order PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+endif()
+
+add_test(NAME modify_order_tests COMMAND test_modify_order)
+
+# Market incremental test
+add_executable(test_market_incremental
+    tests/unit/test_market_incremental.cpp
+    ${SOURCES}
+)
+if(APPLE)
+    target_compile_options(test_market_incremental PRIVATE -stdlib=libc++)
+endif()
+target_link_libraries(test_market_incremental
+    PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    prometheus-cpp::core
+    prometheus-cpp::pull
+)
+if(BOOST_SYSTEM_LIB)
+    target_link_libraries(test_market_incremental PRIVATE ${BOOST_SYSTEM_LIB})
+else()
+    target_compile_definitions(test_market_incremental PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+endif()
+
+add_test(NAME market_incremental_tests COMMAND test_market_incremental)
+
+# Trigger orders tests
+add_executable(test_trigger_orders
+    tests/unit/test_trigger_orders.cpp
+    ${SOURCES}
+)
+if(APPLE)
+    target_compile_options(test_trigger_orders PRIVATE -stdlib=libc++)
+endif()
+target_link_libraries(test_trigger_orders
+    PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    prometheus-cpp::core
+    prometheus-cpp::pull
+)
+if(BOOST_SYSTEM_LIB)
+    target_link_libraries(test_trigger_orders PRIVATE ${BOOST_SYSTEM_LIB})
+else()
+    target_compile_definitions(test_trigger_orders PRIVATE BOOST_ERROR_CODE_HEADER_ONLY=1)
+endif()
+
+add_test(NAME trigger_orders_tests COMMAND test_trigger_orders)
 
 # Install targets
 install(TARGETS matching_engine

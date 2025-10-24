@@ -179,6 +179,21 @@ public:
         return LatencyTracker(order_latency_);
     }
 
+    // Stop and clean up the exposer/registry (useful during shutdown or tests)
+    void stop() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        try {
+            if (exposer_) {
+                exposer_.reset();
+            }
+            if (registry_) {
+                registry_.reset();
+            }
+        } catch (...) {
+            // swallow
+        }
+    }
+
 private:
     MetricsManager() = default;
     ~MetricsManager() = default;

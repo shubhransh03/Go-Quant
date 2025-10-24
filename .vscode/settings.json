@@ -1,13 +1,20 @@
 {
   "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
-  "C_Cpp.default.compilerPath": "/usr/bin/clang++",
-  "C_Cpp.default.intelliSenseMode": "macos-clang-arm64",
+  // On Windows VS Code use MSVC/clang-cl; set to 'cl.exe' if available on PATH. On macOS/Linux, override via environment or user settings.
+  "C_Cpp.default.compilerPath": "cl.exe",
+  "C_Cpp.default.intelliSenseMode": "msvc-x64",
   "C_Cpp.default.cppStandard": "c++17",
   "C_Cpp.default.includePath": [
     "${workspaceFolder}/include",
+    "${workspaceFolder}/src",
+    "${workspaceFolder}/proto",
+  "${workspaceFolder}/third_party/include",
     "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1",
     "/opt/homebrew/include",
-    "/usr/local/include"
+    "/usr/local/include",
+    "C:/Program Files (x86)/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/*/include",
+    "C:/Program Files (x86)/Windows Kits/10/Include/*/ucrt",
+    "C:/Program Files (x86)/Windows Kits/10/Include/*/shared"
   ],
   "C_Cpp.default.macFrameworkPath": [
     "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks"

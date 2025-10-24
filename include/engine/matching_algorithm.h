@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include "order_book.h"
+#include "fee_model.h"
 
 class Trade {
   public:
@@ -40,6 +41,8 @@ class MatchingAlgorithm {
   public:
     MatchingAlgorithm() = default;
 
+    void setFeeModel(FeeModel *fm) { feeModel_ = fm; }
+
     // Main matching function for new orders
     std::vector<Trade> processOrder(OrderBook &orderBook, const std::shared_ptr<Order> &order);
 
@@ -54,6 +57,9 @@ class MatchingAlgorithm {
   // Execute a trade and update the order book state. Returns the Trade record.
   Trade executeTrade(OrderBook &orderBook, const std::shared_ptr<Order> &makerOrder,
              const std::shared_ptr<Order> &takerOrder, double quantity);
+
+  private:
+    FeeModel *feeModel_{nullptr};
 };
 
 #endif // MATCHING_ALGORITHM_H
