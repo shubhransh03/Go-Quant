@@ -15,7 +15,7 @@ jobs:
     
     - name: Install dependencies
       run: |
-        brew install cmake boost nlohmann-json googletest prometheus-cpp
+        brew install cmake boost nlohmann-json googletest
     
     - name: Configure CMake
       run: |
@@ -38,7 +38,10 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: test-results-macos
-        path: build/Testing/Temporary/LastTest.log
+        path: |
+          build/Testing/Temporary/LastTest.log
+          build/*.out
+        if-no-files-found: warn
 
   build-linux:
     runs-on: ubuntu-latest
@@ -81,4 +84,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: test-results-linux
-        path: build/Testing/Temporary/LastTest.log
+        path: |
+          build/Testing/Temporary/LastTest.log
+          build/*.out
+        if-no-files-found: warn
