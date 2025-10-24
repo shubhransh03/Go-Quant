@@ -68,6 +68,7 @@ class OrderBook {
     void addOrder(std::shared_ptr<Order> order);
     void modifyOrder(const std::string &orderId, double newQuantity);
     bool cancelOrder(const std::string &orderId);
+  bool hasOrder(const std::string &orderId) const;
 
     // Market data operations
     struct BBO {

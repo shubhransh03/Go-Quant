@@ -319,3 +319,8 @@ void OrderBook::fromJson(const std::string &jsonStr) {
         }
     }
 }
+
+bool OrderBook::hasOrder(const std::string &orderId) const {
+    std::lock_guard<std::recursive_mutex> lock(mutex);
+    return orderMap.find(orderId) != orderMap.end();
+}

@@ -3,6 +3,7 @@
 #include <boost/beast.hpp>
 #include <boost/beast/websocket.hpp>
 #include <nlohmann/json.hpp>
+#include "utils/time_utils.h"
 #include <iostream>
 #include <thread>
 
@@ -151,11 +152,43 @@ class Listener::Impl {
                                     if (auto self = self_weak.lock()) {
                                         try {
                                             json response;
-                                            response["type"] = "market_data";
                                             response["symbol"] = update.symbol;
-                                            response["timestamp"] = std::chrono::duration_cast<std::chrono::milliseconds>(update.timestamp.time_since_epoch()).count();
-                                            response["bids"] = update.bids;
-                                            response["asks"] = update.asks;
+                                            response["timestamp"] = utils::to_iso8601(update.timestamp);
+                                            // Best bid/ask fields (BBO)
+                                            response["bestBidPrice"] = update.bestBidPrice;
+                                            response["bestBidQuantity"] = update.bestBidQuantity;
+                                            response["bestAskPrice"] = update.bestAskPrice;
+                                            response["bestAskQuantity"] = update.bestAskQuantity;
+                                            response["seqNum"] = update.seqNum;
+                                            if (update.type == MarketDataUpdate::Type::SNAPSHOT) {
+                                                response["type"] = "market_data_snapshot";
+                                                response["bids"] = update.bids;
+                                                response["asks"] = update.asks;
+                                            } else {
+                                                response["type"] = "market_data_increment";
+                                                response["prevSeqNum"] = update.prevSeqNum;
+                                                response["gap"] = update.gap;
+                                                json bidsArr = json::array();
+                                                for (const auto &c : update.bidsChanges) {
+                                                    json o;
+                                                    std::string op = (c.op == MarketDataUpdate::ChangeOp::ADD) ? "add" : (c.op == MarketDataUpdate::ChangeOp::UPDATE) ? "update" : "remove";
+                                                    o["op"] = op;
+                                                    o["price"] = c.price;
+                                                    if (c.op != MarketDataUpdate::ChangeOp::REMOVE) o["quantity"] = c.quantity;
+                                                    bidsArr.push_back(o);
+                                                }
+                                                json asksArr = json::array();
+                                                for (const auto &c : update.asksChanges) {
+                                                    json o;
+                                                    std::string op = (c.op == MarketDataUpdate::ChangeOp::ADD) ? "add" : (c.op == MarketDataUpdate::ChangeOp::UPDATE) ? "update" : "remove";
+                                                    o["op"] = op;
+                                                    o["price"] = c.price;
+                                                    if (c.op != MarketDataUpdate::ChangeOp::REMOVE) o["quantity"] = c.quantity;
+                                                    asksArr.push_back(o);
+                                                }
+                                                response["bids_changes"] = bidsArr;
+                                                response["asks_changes"] = asksArr;
+                                            }
                                             self->send(response.dump());
                                         } catch (...) {
                                             // ignore send errors for now
@@ -192,7 +225,8 @@ class Listener::Impl {
                                             response["maker_fee"] = trade.makerFee;
                                             response["taker_fee"] = trade.takerFee;
                                             response["aggressor_side"] = trade.aggressorSide;
-                                            response["timestamp"] = std::chrono::duration_cast<std::chrono::milliseconds>(trade.timestamp.time_since_epoch()).count();
+                                            response["timestamp"] = utils::to_iso8601(trade.timestamp);
+                                            response["seqNum"] = trade.seqNum;
                                             self->send(response.dump());
                                         } catch (...) {
                                             // ignore send errors for now
@@ -213,6 +247,35 @@ class Listener::Impl {
                         } catch (const std::exception &e) {
                             json resp = { {"status", "error"}, {"message", e.what()} };
                             self->send(resp.dump());
+                        }
+                    }
+                    
+                    else if (type == "modify_order") {
+                        // Required: order_id, new_quantity
+                        if (!j.contains("order_id") || !j.contains("new_quantity")) {
+                            json resp = { {"status", "error"}, {"code", "invalid_request"}, {"message", "missing order_id or new_quantity"} };
+                            self->send(resp.dump());
+                        } else {
+                            std::string orderId = j.at("order_id").get<std::string>();
+                            double newQty = j.at("new_quantity").get<double>();
+                            if (orderId.empty() || newQty < 0.0) {
+                                json resp = { {"status", "error"}, {"code", "invalid_params"}, {"message", "invalid order_id or quantity"} };
+                                self->send(resp.dump());
+                            } else {
+                                try {
+                                    bool ok = self->engine.modifyOrder(orderId, newQty);
+                                    if (ok) {
+                                        json resp = { {"status", "ok"}, {"message", "order_modified"}, {"order_id", orderId}, {"new_quantity", newQty} };
+                                        self->send(resp.dump());
+                                    } else {
+                                        json resp = { {"status", "error"}, {"code", "not_found"}, {"message", "order not found or could not be modified"} };
+                                        self->send(resp.dump());
+                                    }
+                                } catch (const std::exception &e) {
+                                    json resp = { {"status", "error"}, {"code", "processing_error"}, {"message", e.what()} };
+                                    self->send(resp.dump());
+                                }
+                            }
                         }
                     }
                 } catch (const std::exception &e) {

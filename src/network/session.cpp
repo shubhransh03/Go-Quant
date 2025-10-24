@@ -11,6 +11,7 @@ Session::Session(int sessionId) : sessionId(sessionId) {
 #include <boost/beast/websocket.hpp>
 #include <nlohmann/json.hpp>
 #include "network/session.h"
+#include "utils/time_utils.h"
 
 using json = nlohmann::json;
 namespace websocket = boost::beast::websocket;
@@ -61,11 +62,45 @@ class WebSocketSession : public Session, public std::enable_shared_from_this<Web
             } else if (type == "subscribe_market_data") {
                 std::string symbol = j["symbol"];
                 engine_.subscribeToMarketData(symbol, [this](const MarketDataUpdate &update) {
-                    json response = {{"type", "market_data"},
-                                     {"symbol", update.symbol},
-                                     {"timestamp", std::chrono::system_clock::to_time_t(update.timestamp)},
-                                     {"bids", update.bids},
-                                     {"asks", update.asks}};
+                    json response;
+                    response["type"] = "market_data";
+                    response["symbol"] = update.symbol;
+                    response["timestamp"] = utils::to_iso8601(update.timestamp);
+                    response["bestBidPrice"] = update.bestBidPrice;
+                    response["bestBidQuantity"] = update.bestBidQuantity;
+                    response["bestAskPrice"] = update.bestAskPrice;
+                    response["bestAskQuantity"] = update.bestAskQuantity;
+                    response["seqNum"] = update.seqNum;
+                    if (update.type == MarketDataUpdate::Type::SNAPSHOT) {
+                        response["type"] = "market_data_snapshot";
+                        response["bids"] = update.bids;
+                        response["asks"] = update.asks;
+                    } else {
+                        response["type"] = "market_data_increment";
+                        response["prevSeqNum"] = update.prevSeqNum;
+                        response["gap"] = update.gap;
+                        // serialize changes as objects
+                        json bidsArr = json::array();
+                        for (const auto &c : update.bidsChanges) {
+                            json o;
+                            std::string op = (c.op == MarketDataUpdate::ChangeOp::ADD) ? "add" : (c.op == MarketDataUpdate::ChangeOp::UPDATE) ? "update" : "remove";
+                            o["op"] = op;
+                            o["price"] = c.price;
+                            if (c.op != MarketDataUpdate::ChangeOp::REMOVE) o["quantity"] = c.quantity;
+                            bidsArr.push_back(o);
+                        }
+                        json asksArr = json::array();
+                        for (const auto &c : update.asksChanges) {
+                            json o;
+                            std::string op = (c.op == MarketDataUpdate::ChangeOp::ADD) ? "add" : (c.op == MarketDataUpdate::ChangeOp::UPDATE) ? "update" : "remove";
+                            o["op"] = op;
+                            o["price"] = c.price;
+                            if (c.op != MarketDataUpdate::ChangeOp::REMOVE) o["quantity"] = c.quantity;
+                            asksArr.push_back(o);
+                        }
+                        response["bids_changes"] = bidsArr;
+                        response["asks_changes"] = asksArr;
+                    }
                     sendResponse(response);
                 });
 
@@ -83,11 +118,31 @@ class WebSocketSession : public Session, public std::enable_shared_from_this<Web
                                      {"maker_fee", trade.makerFee},
                                      {"taker_fee", trade.takerFee},
                                      {"aggressor_side", trade.aggressorSide},
-                                     {"timestamp", std::chrono::system_clock::to_time_t(trade.timestamp)}};
+                                     {"timestamp", utils::to_iso8601(trade.timestamp)},
+                                     {"seqNum", trade.seqNum}};
                     sendResponse(response);
                 });
 
                 sendResponse({{"status", "success"}, {"message", "Subscribed to trades"}});
+            }
+            else if (type == "modify_order") {
+                if (!j.contains("order_id") || !j.contains("new_quantity")) {
+                    sendResponse({{"status", "error"}, {"code", "invalid_request"}, {"message", "missing order_id or new_quantity"}});
+                } else {
+                    std::string orderId = j["order_id"];
+                    double newQty = j["new_quantity"];
+                    if (orderId.empty() || newQty < 0.0) {
+                        sendResponse({{"status", "error"}, {"code", "invalid_params"}, {"message", "invalid order_id or quantity"}});
+                    } else {
+                        try {
+                            bool ok = engine_.modifyOrder(orderId, newQty);
+                            if (ok) sendResponse({{"status", "success"}, {"message", "order modified"}, {"order_id", orderId}});
+                            else sendResponse({{"status", "error"}, {"message", "order not found"}});
+                        } catch (const std::exception &e) {
+                            sendResponse({{"status", "error"}, {"message", e.what()}});
+                        }
+                    }
+                }
             }
         } catch (const std::exception &e) { sendResponse({{"status", "error"}, {"message", e.what()}}); }
     }

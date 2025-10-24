@@ -168,6 +168,42 @@ pip install websockets
 python tools/example_ws_client.py
 ```
 
+## CI and running tests remotely
+
+This repo includes a GitHub Actions workflow that will build and run unit tests on push. To have CI validate the current branch:
+
+1. Commit your changes and push to the `main` branch or open a pull request.
+2. Visit the repository Actions tab to inspect the run and test logs.
+
+I added test targets `test_market_incremental` and `test_trigger_orders` — CI will run all registered tests.
+
+## If you don't have CMake locally
+
+On Windows you can install CMake via Chocolatey. A helper script is provided at `scripts/install_cmake_choco.ps1`.
+
+Run the script in an elevated PowerShell (Administrator):
+
+```powershell
+.\scripts\install_cmake_choco.ps1
+```
+
+After installation, restart your shell and run the build instructions above.
+
+## Benchmarks
+
+Use the provided `bench_runner` to run a simple throughput/latency check locally after building the project:
+
+```powershell
+# from repo root
+if (-Not (Test-Path build)) { New-Item -ItemType Directory -Path build }
+Set-Location build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build . --config Release -- /m
+
+# run the bench runner
+.\bench_runner.exe
+```
+
 ## Trade-off Decisions
 
 1. **Memory vs. Speed**
