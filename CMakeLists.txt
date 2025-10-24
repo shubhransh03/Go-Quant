@@ -70,7 +70,8 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(GTest REQUIRED)
 find_package(Threads REQUIRED)
 # Note: Using Boost.Beast/Asio headers; no separate websocketpp/asio packages required
-find_package(prometheus-cpp CONFIG REQUIRED)
+# Prometheus-cpp is optional; we have stubs in third_party/
+find_package(prometheus-cpp CONFIG QUIET)
 
 # Include directories
 include_directories(
