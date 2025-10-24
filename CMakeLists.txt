@@ -73,6 +73,15 @@ find_package(Threads REQUIRED)
 # Prometheus-cpp is optional; we have stubs in third_party/
 find_package(prometheus-cpp CONFIG QUIET)
 
+# Set up prometheus library variable (use actual library if found, otherwise empty)
+if(prometheus-cpp_FOUND)
+    set(PROMETHEUS_LIBS prometheus-cpp::core prometheus-cpp::pull)
+    message(STATUS "Using prometheus-cpp library")
+else()
+    set(PROMETHEUS_LIBS "")
+    message(STATUS "Using prometheus stubs from third_party/")
+endif()
+
 # Include directories
 include_directories(
     ${CMAKE_SOURCE_DIR}/include
@@ -101,8 +110,8 @@ target_link_libraries(matching_engine
     PRIVATE
     nlohmann_json::nlohmann_json
     Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
+    ${PROMETHEUS_LIBS}
+    
 )
 if(BOOST_SYSTEM_LIB)
     target_link_libraries(matching_engine PRIVATE ${BOOST_SYSTEM_LIB})
@@ -127,8 +136,8 @@ target_link_libraries(test_matching_engine
     GTest::gtest_main
     nlohmann_json::nlohmann_json
     Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
+    ${PROMETHEUS_LIBS}
+    
 )
 if(BOOST_SYSTEM_LIB)
     target_link_libraries(test_matching_engine PRIVATE ${BOOST_SYSTEM_LIB})
@@ -165,8 +174,8 @@ if(BUILD_BENCHMARKS)
         PRIVATE
         nlohmann_json::nlohmann_json
         Threads::Threads
-        prometheus-cpp::core
-        prometheus-cpp::pull
+        ${PROMETHEUS_LIBS}
+        
     )
     if(BOOST_SYSTEM_LIB)
         target_link_libraries(performance_benchmark PRIVATE ${BOOST_SYSTEM_LIB})
@@ -186,8 +195,8 @@ if(BUILD_BENCHMARKS)
         PRIVATE
         nlohmann_json::nlohmann_json
         Threads::Threads
-        prometheus-cpp::core
-        prometheus-cpp::pull
+        ${PROMETHEUS_LIBS}
+        
     )
     if(BOOST_SYSTEM_LIB)
         target_link_libraries(latency_benchmark PRIVATE ${BOOST_SYSTEM_LIB})
@@ -207,8 +216,8 @@ if(BUILD_BENCHMARKS)
         PRIVATE
         nlohmann_json::nlohmann_json
         Threads::Threads
-        prometheus-cpp::core
-        prometheus-cpp::pull
+        ${PROMETHEUS_LIBS}
+        
     )
     if(BOOST_SYSTEM_LIB)
         target_link_libraries(throughput_benchmark PRIVATE ${BOOST_SYSTEM_LIB})
@@ -228,8 +237,8 @@ if(BUILD_BENCHMARKS)
         PRIVATE
         nlohmann_json::nlohmann_json
         Threads::Threads
-        prometheus-cpp::core
-        prometheus-cpp::pull
+        ${PROMETHEUS_LIBS}
+        
     )
     if(BOOST_SYSTEM_LIB)
         target_link_libraries(bench_runner PRIVATE ${BOOST_SYSTEM_LIB})
@@ -255,8 +264,8 @@ target_link_libraries(test_wal
     GTest::gtest_main
     nlohmann_json::nlohmann_json
     Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
+    ${PROMETHEUS_LIBS}
+    
 )
 if(BOOST_SYSTEM_LIB)
     target_link_libraries(test_wal PRIVATE ${BOOST_SYSTEM_LIB})
@@ -280,8 +289,8 @@ target_link_libraries(test_persistence
     GTest::gtest_main
     nlohmann_json::nlohmann_json
     Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
+    ${PROMETHEUS_LIBS}
+    
 )
 if(BOOST_SYSTEM_LIB)
     target_link_libraries(test_persistence PRIVATE ${BOOST_SYSTEM_LIB})
@@ -305,8 +314,8 @@ target_link_libraries(test_fifo
     GTest::gtest_main
     nlohmann_json::nlohmann_json
     Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
+    ${PROMETHEUS_LIBS}
+    
 )
 if(BOOST_SYSTEM_LIB)
     target_link_libraries(test_fifo PRIVATE ${BOOST_SYSTEM_LIB})
@@ -330,8 +339,8 @@ target_link_libraries(test_modify_order
     GTest::gtest_main
     nlohmann_json::nlohmann_json
     Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
+    ${PROMETHEUS_LIBS}
+    
 )
 if(BOOST_SYSTEM_LIB)
     target_link_libraries(test_modify_order PRIVATE ${BOOST_SYSTEM_LIB})
@@ -355,8 +364,8 @@ target_link_libraries(test_market_incremental
     GTest::gtest_main
     nlohmann_json::nlohmann_json
     Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
+    ${PROMETHEUS_LIBS}
+    
 )
 if(BOOST_SYSTEM_LIB)
     target_link_libraries(test_market_incremental PRIVATE ${BOOST_SYSTEM_LIB})
@@ -380,8 +389,8 @@ target_link_libraries(test_trigger_orders
     GTest::gtest_main
     nlohmann_json::nlohmann_json
     Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
+    ${PROMETHEUS_LIBS}
+    
 )
 if(BOOST_SYSTEM_LIB)
     target_link_libraries(test_trigger_orders PRIVATE ${BOOST_SYSTEM_LIB})
@@ -405,8 +414,8 @@ target_link_libraries(test_bbo
     GTest::gtest_main
     nlohmann_json::nlohmann_json
     Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
+    ${PROMETHEUS_LIBS}
+    
 )
 if(BOOST_SYSTEM_LIB)
     target_link_libraries(test_bbo PRIVATE ${BOOST_SYSTEM_LIB})
@@ -430,8 +439,8 @@ target_link_libraries(test_wal_modify
     GTest::gtest_main
     nlohmann_json::nlohmann_json
     Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
+    ${PROMETHEUS_LIBS}
+    
 )
 if(BOOST_SYSTEM_LIB)
     target_link_libraries(test_wal_modify PRIVATE ${BOOST_SYSTEM_LIB})
@@ -455,8 +464,8 @@ target_link_libraries(test_metrics
     GTest::gtest_main
     nlohmann_json::nlohmann_json
     Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
+    ${PROMETHEUS_LIBS}
+    
 )
 if(BOOST_SYSTEM_LIB)
     target_link_libraries(test_metrics PRIVATE ${BOOST_SYSTEM_LIB})
@@ -480,8 +489,8 @@ target_link_libraries(test_rate_limit
     GTest::gtest_main
     nlohmann_json::nlohmann_json
     Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
+    ${PROMETHEUS_LIBS}
+    
 )
 if(BOOST_SYSTEM_LIB)
     target_link_libraries(test_rate_limit PRIVATE ${BOOST_SYSTEM_LIB})
@@ -505,8 +514,8 @@ target_link_libraries(test_performance
     GTest::gtest_main
     nlohmann_json::nlohmann_json
     Threads::Threads
-    prometheus-cpp::core
-    prometheus-cpp::pull
+    ${PROMETHEUS_LIBS}
+    
 )
 if(BOOST_SYSTEM_LIB)
     target_link_libraries(test_performance PRIVATE ${BOOST_SYSTEM_LIB})
