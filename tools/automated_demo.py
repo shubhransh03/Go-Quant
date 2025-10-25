@@ -11,7 +11,13 @@ Usage:
     2. Run this script in Terminal 2:
        python3 tools/automated_demo.py
     
-    3. Just watch and narrate as it runs!
+    3. Choose pause mode:
+       - MANUAL: Press Enter to continue each step (RECOMMENDED for recording)
+       - AUTO: Automatic countdown between steps
+
+PAUSE CONTROL:
+    - Press Ctrl+C at any time to stop the demo
+    - In manual mode, press Enter to move to the next step
 """
 
 import asyncio
@@ -20,6 +26,13 @@ import json
 import time
 from datetime import datetime
 from typing import Dict, List, Optional
+
+# ============================================================================
+# CONFIGURATION - Change this to control how pausing works
+# ============================================================================
+MANUAL_PAUSE_MODE = True  # True = Press Enter to continue, False = Auto countdown
+AUTO_PAUSE_SECONDS = 3    # Seconds to pause in auto mode
+# ============================================================================
 
 # ANSI color codes for beautiful terminal output
 class Colors:
@@ -58,17 +71,26 @@ def print_json(data: dict, label: str = ""):
         print(f"{Colors.BLUE}{label}:{Colors.ENDC}")
     print(f"{Colors.BOLD}{json.dumps(data, indent=2)}{Colors.ENDC}")
 
-def pause(seconds: int = 3, message: str = ""):
-    """Pause with countdown"""
-    if message:
-        print(f"\n{Colors.YELLOW}⏸  {message}{Colors.ENDC}")
+def pause(seconds: int = 3, message: str = "", manual: bool = True):
+    """Pause with countdown or manual control"""
+    if manual:
+        # Manual mode - wait for user to press Enter
+        if message:
+            print(f"\n{Colors.YELLOW}⏸  {message}{Colors.ENDC}")
+        print(f"{Colors.GREEN}Press Enter to continue...{Colors.ENDC}", end='')
+        input()
+        print()  # New line after Enter
     else:
-        print(f"\n{Colors.YELLOW}⏸  Pausing for {seconds} seconds...{Colors.ENDC}")
-    
-    for i in range(seconds, 0, -1):
-        print(f"   {i}...", end='\r', flush=True)
-        time.sleep(1)
-    print("   " + " "*20)  # Clear the countdown
+        # Automatic countdown mode
+        if message:
+            print(f"\n{Colors.YELLOW}⏸  {message}{Colors.ENDC}")
+        else:
+            print(f"\n{Colors.YELLOW}⏸  Pausing for {seconds} seconds...{Colors.ENDC}")
+        
+        for i in range(seconds, 0, -1):
+            print(f"   {i}...", end='\r', flush=True)
+            time.sleep(1)
+        print("   " + " "*20)  # Clear the countdown
 
 class AutomatedDemo:
     def __init__(self, uri: str = "ws://localhost:8080"):
@@ -82,14 +104,14 @@ class AutomatedDemo:
         print_action(f"Connecting to matching engine at {self.uri}")
         self.ws = await websockets.connect(self.uri)
         print_result("Connected successfully!")
-        pause(2)
+        pause(manual=MANUAL_PAUSE_MODE)
         
     async def send_message(self, message: dict, label: str = ""):
         """Send a message and show it"""
         self.message_count += 1
         print_json(message, label or f"Message #{self.message_count}")
         await self.ws.send(json.dumps(message))
-        pause(1)
+        pause(seconds=1, manual=MANUAL_PAUSE_MODE)
         
     async def receive_responses(self, count: int = 1, timeout: float = 2.0):
         """Receive and display responses"""
@@ -104,7 +126,7 @@ class AutomatedDemo:
         except asyncio.TimeoutError:
             pass
         
-        pause(2)
+        pause(seconds=2, manual=MANUAL_PAUSE_MODE)
         return responses
         
     async def demo_subscriptions(self):
@@ -528,6 +550,8 @@ if __name__ == "__main__":
 ╚══════════════════════════════════════════════════════════════════════════╝
 {Colors.ENDC}
 
+{Colors.BOLD}PAUSE MODE: {Colors.GREEN}{'MANUAL (Press Enter to continue)' if MANUAL_PAUSE_MODE else f'AUTO ({AUTO_PAUSE_SECONDS}s countdown)'}{Colors.ENDC}
+
 {Colors.BOLD}SETUP INSTRUCTIONS:{Colors.ENDC}
 
 1. Open Terminal 1 and start the matching engine:
@@ -537,6 +561,10 @@ if __name__ == "__main__":
 2. In this terminal (Terminal 2), this script will run automatically
 
 3. Just watch, read the output, and narrate what's happening!
+
+{Colors.BOLD}CONTROLS:{Colors.ENDC}
+   • Press {Colors.GREEN}Enter{Colors.ENDC} to move to next step (manual mode)
+   • Press {Colors.RED}Ctrl+C{Colors.ENDC} at any time to stop
 
 {Colors.YELLOW}Press Enter when the matching engine is running...{Colors.ENDC}
     """)
